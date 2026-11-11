@@ -13,6 +13,12 @@
 #endif
 
 #include "NotchWindow.h"
+#include "services/BatteryService.h"
+#include "services/AudioService.h"
+#include "services/BrightnessService.h"
+#include "services/QuickSettingsService.h"
+#include "services/ConfigService.h"
+#include "services/CalendarService.h"
 
 namespace {
 
@@ -85,11 +91,27 @@ int main(int argc, char *argv[])
     // NotchWindow 自身が BlurHelper と FullscreenDetector を所有する。
     NotchWindow notch;
 
+    // Phase 2 サービス
+    ConfigService configService;
+    BatteryService batteryService;
+    AudioService audioService;
+    BrightnessService brightnessService;
+    QuickSettingsService quickSettingsService;
+    CalendarService calendarService;
+
     // ---- コンテキストプロパティ登録 --------------------------------------
     // QML 側は `NotchWindow.fullscreenActive` をガード付きで参照する
     // (CONTRACT §2)。Phase 1 では NotchWindow 自身を公開する。
+    // Phase 2 サービスは CONTRACT §3 表の名前で固定: Config, BatteryService, AudioService,
+    // BrightnessService, QuickSettingsService, CalendarService
     if (QQmlEngine *engine = notch.engine()) {
         engine->rootContext()->setContextProperty(QStringLiteral("NotchWindow"), &notch);
+        engine->rootContext()->setContextProperty(QStringLiteral("Config"), &configService);
+        engine->rootContext()->setContextProperty(QStringLiteral("BatteryService"), &batteryService);
+        engine->rootContext()->setContextProperty(QStringLiteral("AudioService"), &audioService);
+        engine->rootContext()->setContextProperty(QStringLiteral("BrightnessService"), &brightnessService);
+        engine->rootContext()->setContextProperty(QStringLiteral("QuickSettingsService"), &quickSettingsService);
+        engine->rootContext()->setContextProperty(QStringLiteral("CalendarService"), &calendarService);
     } else {
         qWarning() << "ActiveNotch: QML エンジンを取得できませんでした。";
     }
