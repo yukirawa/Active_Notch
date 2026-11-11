@@ -2,21 +2,20 @@ import QtQuick
 
 // ActiveNotch ルート。
 //
-// - C++ (NotchWindow) は QQuickView::SizeRootObjectToView +
-//   resize(220, 30) でこの型 "Main" をロードするため、root のサイズは
-//   ウィンドウ (= Phase 0 ではピルそのもの) に追従する。よってここでは
-//   サイズを指定しない。
-// - Phase 1 でウィンドウが最大サイズ固定 (660x440 程度) になっても
-//   root はウィンドウに追従するため、下記の anchors による「上部中央」
-//   配置はそのまま機能する。
+// - C++ (NotchWindow) は QQuickView::SizeRootObjectToView でこの型 "Main" を
+//   ロードするため、root のサイズはウィンドウ (Phase 1 から 660x448 論理px 固定)
+//   に追従する。ここではサイズを指定しない。
+// - Notch は Notch.qml 側で anchors.fill: parent を宣言しており、全ウィンドウを
+//   覆う。これにより:
+//     * 展開 shape は QML 内部のジオメトリでモーフする (ウィンドウはリサイズしない)
+//     * pinned 時は pinCatcher が全ウィンドウ領域のクリック (ノッチ外) を受ける
+// - C++ は findChild<QQuickItem*>("notch") + shapeSettled シグナルで
+//   入力領域マスクを更新する (docs/CONTRACT.md §2)。
 Item {
     id: root
 
-    // 折りたたみピル: 画面上部中央に密着
-    // (Phase 1 の状態機械 Collapsed/Expanded/Pinned は Notch 内で管理)
+    // 状態機械 (Collapsed/Expanded/Pinned) と開閉アニメは Notch 内で管理
     Notch {
         id: notch
-        anchors.top: root.top
-        anchors.horizontalCenter: root.horizontalCenter
     }
 }

@@ -2,6 +2,9 @@
 build/
 build-*/
 
+# verify-ui.sh の成果物 (スクリーンショット / ログ)
+scripts/artifacts/
+
 # ツールチェーン生成物
 .cache/
 compile_commands.json
