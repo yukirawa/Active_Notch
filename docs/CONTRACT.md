@@ -107,7 +107,8 @@ qml/
 | 2 | 2 | Config/Battery/Audio/Brightness/QuickSettings/Calendar | Calendar/Quick/Battery/Sound ページ + ナビ/コンポーネント | **完了** (63dc554) |
 | 3 | 3 | Media(MPRIS)/Stats | Media/Stats ページ + ナビ/コンポーネント | **完了** (4230ce9) |
 | 4 | 4 | Network/Bluetooth/Weather | Network/Weather ページ + ナビ/コンポーネント | **完了** (3683207) |
-| 5 | 5 | Notifications/Clipboard | Notifications/Clipboard ページ | **実行中** |
+| 5 | 5 | Notifications/Clipboard | Notifications/Clipboard ページ + ナビ/コンポーネント | **完了** (1157b2d) |
+| 6 | 6 | Launcher/Tray(SNI) | Launcher/Tray ページ | **実行中** |
 | 5 | 5 | Notifications/Clipboard | Notifications/Clipboard ページ | 未 |
 | 6 | 6 | Launcher/Tray(SNI) | Launcher/Tray ページ | 未 |
 | 7 | 7 | 設定UI・永続化・i18n (qt_add_translations) | Settings ページ | 未 |
