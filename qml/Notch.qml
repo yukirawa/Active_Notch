@@ -316,9 +316,8 @@ Item {
                 }
             }
 
-            // --- expanded: placeholder パネル -------------------------------
-            // Phase 2+ ではこの Column をページ Loader / ページスイッチャに
-            // 差し替える (qml/pages/* への置き換えを想定した分離構造)。
+            // --- expanded: ページナビゲーション + コンテンツ -------------------
+            // Phase 3: TabBar + ページスイッチャ構成
             Item {
                 id: expandedContent
                 anchors.fill: parent
@@ -328,7 +327,7 @@ Item {
                     x: Theme.panelPadding
                     y: Theme.panelPadding
                     width: parent.width - Theme.panelPadding * 2
-                    spacing: 18
+                    spacing: 12
 
                     // ブロック 0: 大きな時計 + 日本語の日付 (時差フェード)
                     Column {
@@ -338,9 +337,6 @@ Item {
                         opacity: root.open ? 1 : 0
                         Behavior on opacity {
                             enabled: root.open
-                            // 時差フェード: staggerMs 待ってからフェードイン
-                            // (Animation には delay プロパティがないため
-                            //  PauseAnimation で実装する)
                             SequentialAnimation {
                                 PauseAnimation { duration: 0 * Theme.staggerMs }
                                 NumberAnimation {
@@ -371,15 +367,20 @@ Item {
                         }
                     }
 
-                    // ブロック 1: GlassCard (時差フェード)。
-                    // CMake の qt_add_qml_module に登録済みのため型で直接使用する
-                    // (高さは title/subtitle/body から implicitHeight で自動計算)。
-                    GlassCard {
-                        id: aboutCard
+                    // TabBar: ページ切り替えナビゲーション (時差フェード)
+                    TabBar {
+                        id: tabBar
                         width: parent.width
-                        title: qsTr("ActiveNotch — Phase 1")
-                        subtitle: "v" + Theme.appVersion
-                        body: qsTr("展開パネルの中身は Phase 2 以降のフェーズで実装されます。")
+                        height: 40
+                        currentPage: pageLoader.currentPage
+                        tabs: [
+                            { pageId: "quick", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z'/>", label: qsTr("クイック"), tooltip: qsTr("クイック設定") },
+                            { pageId: "battery", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33V21.67C7 22.4 7.6 23 8.33 23h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zM13 18.33l-2.47-2.47c-.23-.23-.61-.23-.84 0L7.33 18.34c-.23.23-.23.61 0 .84l2.47 2.47c.23.23.61.23.84 0l3.67-3.67c.23-.23.23-.61 0-.84l-2.47-2.47z'/>", label: qsTr("バッテリー"), tooltip: qsTr("バッテリー情報") },
+                            { pageId: "sound", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z'/>", label: qsTr("音量"), tooltip: qsTr("音量・輝度") },
+                            { pageId: "calendar", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z'/>", label: qsTr("カレンダー"), tooltip: qsTr("月間カレンダー") },
+                            { pageId: "media", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/>", label: qsTr("メディア"), tooltip: qsTr("メディアコントロール") },
+                            { pageId: "stats", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z'/>", label: qsTr("統計"), tooltip: qsTr("システム統計") }
+                        ]
                         opacity: root.open ? 1 : 0
                         Behavior on opacity {
                             enabled: root.open
@@ -392,11 +393,33 @@ Item {
                             }
                         }
                         transform: Translate {
-                            y: (1.0 - aboutCard.opacity) * Theme.revealSlideDistance
+                            y: (1.0 - tabBar.opacity) * Theme.revealSlideDistance
+                        }
+                        onTabClicked: pageLoader.loadPage(pageId)
+                    }
+
+                    // ページローダー: 選択されたページを動的ロード (時差フェード)
+                    PageLoader {
+                        id: pageLoader
+                        width: parent.width
+                        Layout.fillHeight: true
+                        opacity: root.open ? 1 : 0
+                        Behavior on opacity {
+                            enabled: root.open
+                            SequentialAnimation {
+                                PauseAnimation { duration: 2 * Theme.staggerMs }
+                                NumberAnimation {
+                                    duration: Theme.revealDurationMs
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
+                        }
+                        transform: Translate {
+                            y: (1.0 - pageLoader.opacity) * Theme.revealSlideDistance
                         }
                     }
 
-                    // ブロック 2: 操作ヒント (時差フェード)
+                    // 操作ヒント (時差フェード)
                     Text {
                         id: hintBlock
                         width: parent.width
@@ -411,7 +434,7 @@ Item {
                         Behavior on opacity {
                             enabled: root.open
                             SequentialAnimation {
-                                PauseAnimation { duration: 2 * Theme.staggerMs }
+                                PauseAnimation { duration: 3 * Theme.staggerMs }
                                 NumberAnimation {
                                     duration: Theme.revealDurationMs
                                     easing.type: Easing.OutCubic

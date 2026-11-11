@@ -30,6 +30,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #   - KF6CalendarCore      : CalendarService (KHolidays)
 #   - KF6Holidays          : CalendarService (HolidayRegion)
 #
+# Phase 3 追加分 (サービス実装):
+#   - DBus                 : MediaService (MPRIS)
+#   - (procfs/sysfs)       : StatsService (/proc, hwmon, intel_gpu_top)
+#
 # プライベートモジュールを使うと Qt バージョン固定の警告が出るが、
 # このプロジェクトは実機の Qt 6.12 に固定して使うため抑制する。
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
@@ -98,6 +102,8 @@ qt_add_executable(activenotch
     src/services/BrightnessService.cpp
     src/services/QuickSettingsService.cpp
     src/services/CalendarService.cpp
+    src/services/MediaService.cpp
+    src/services/StatsService.cpp
 )
 
 # QML モジュール URI は src/NotchWindow.cpp の kQmlModuleUri と一致させること。
@@ -219,6 +225,32 @@ target_link_libraries(tst_quicksettingsservice PRIVATE
 set_target_properties(tst_quicksettingsservice PROPERTIES AUTOMOC ON)
 add_test(NAME tst_quicksettingsservice COMMAND tst_quicksettingsservice)
 
+# Phase 3 サービスの純粋関数テスト
+qt_add_executable(tst_mediaservice
+    tests/tst_mediaservice.cpp
+    src/services/MediaService.cpp
+)
+target_include_directories(tst_mediaservice PRIVATE src)
+target_link_libraries(tst_mediaservice PRIVATE
+    Qt6::Test
+    Qt6::Core
+    Qt6::DBus
+)
+set_target_properties(tst_mediaservice PROPERTIES AUTOMOC ON)
+add_test(NAME tst_mediaservice COMMAND tst_mediaservice)
+
+qt_add_executable(tst_statsservice
+    tests/tst_statsservice.cpp
+    src/services/StatsService.cpp
+)
+target_include_directories(tst_statsservice PRIVATE src)
+target_link_libraries(tst_statsservice PRIVATE
+    Qt6::Test
+    Qt6::Core
+)
+set_target_properties(tst_statsservice PROPERTIES AUTOMOC ON)
+add_test(NAME tst_statsservice COMMAND tst_statsservice)
+
 # ---------------------------------------------------------------------------
 # 警告 (Phase 0 の完了条件: -Wall -Wextra で警告ゼロ)
 # ---------------------------------------------------------------------------
@@ -231,6 +263,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(tst_calendarservice PRIVATE -Wall -Wextra)
     target_compile_options(tst_configservice PRIVATE -Wall -Wextra)
     target_compile_options(tst_quicksettingsservice PRIVATE -Wall -Wextra)
+    target_compile_options(tst_mediaservice PRIVATE -Wall -Wextra)
+    target_compile_options(tst_statsservice PRIVATE -Wall -Wextra)
 endif()
 
 # install 規則は Phase 8 で整備する (Phase 0〜7 は ./build/activenotch の直接実行のみ)。

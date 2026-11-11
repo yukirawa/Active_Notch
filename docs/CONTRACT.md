@@ -103,9 +103,9 @@ qml/
 
 | Wave | Phase | coder (C++) | ui-designer (QML) | 状態 |
 |---|---|---|---|---|
-| 1 | 1 | ウィンドウ固定化・マスク・ブラー・全画面検出・scripts・tests | 状態機械・スプリングモーフ・placeholder パネル・GlassCard | **実行中** |
-| 2 | 2 | Config/Battery/Audio/Brightness/QuickSettings/Calendar | Calendar/Quick/Battery/Sound ページ | 未 |
-| 3 | 3 | Media(MPRIS)/Stats | Media/Stats ページ (ゲージ/グラフ) | 未 |
+| 1 | 1 | ウィンドウ固定化・マスク・ブラー・全画面検出・scripts・tests | 状態機械・スプリングモーフ・placeholder パネル・GlassCard | **完了** (b86be8e) |
+| 2 | 2 | Config/Battery/Audio/Brightness/QuickSettings/Calendar | Calendar/Quick/Battery/Sound ページ + ナビ/コンポーネント | **完了** (63dc554) |
+| 3 | 3 | Media(MPRIS)/Stats | Media/Stats ページ (ゲージ/グラフ) | **実行中** |
 | 4 | 4 | Network/Bluetooth/Weather | Network/Weather ページ | 未 |
 | 5 | 5 | Notifications/Clipboard | Notifications/Clipboard ページ | 未 |
 | 6 | 6 | Launcher/Tray(SNI) | Launcher/Tray ページ | 未 |
