@@ -1,0 +1,14 @@
+# ビルドディレクトリ
+build/
+build-*/
+
+# ツールチェーン生成物
+.cache/
+compile_commands.json
+.clangd/
+
+# エディタ / IDE
+.vscode/
+.idea/
+*.user
+*.autosave
