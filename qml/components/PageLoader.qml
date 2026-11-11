@@ -30,7 +30,9 @@ Item {
         "sound": "pages/Sound.qml",
         "calendar": "pages/Calendar.qml",
         "media": "pages/Media.qml",
-        "stats": "pages/Stats.qml"
+        "stats": "pages/Stats.qml",
+        "network": "pages/Network.qml",
+        "weather": "pages/Weather.qml"
     }
 
     // ---- Loader: 動的ページ読み込み -----------------------------------------

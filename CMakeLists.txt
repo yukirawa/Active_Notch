@@ -34,11 +34,15 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #   - DBus                 : MediaService (MPRIS)
 #   - (procfs/sysfs)       : StatsService (/proc, hwmon, intel_gpu_top)
 #
+# Phase 4 追加分 (サービス実装):
+#   - Network              : WeatherService (HTTP)
+#   - KF6BluezQt           : BluetoothService
+#
 # プライベートモジュールを使うと Qt バージョン固定の警告が出るが、
 # このプロジェクトは実機の Qt 6.12 に固定して使うため抑制する。
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
 find_package(Qt6 REQUIRED COMPONENTS
-    Quick Qml DBus Test GuiPrivate WaylandClientPrivate)
+    Quick Qml DBus Test GuiPrivate WaylandClientPrivate Network)
 
 # 注意: リンクターゲットは LayerShellQt::Interface。
 # (LayerShellQt::LayerShellQt というターゲットは存在しない)
@@ -48,10 +52,11 @@ find_package(LayerShellQt REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(WAYLAND_CLIENT REQUIRED IMPORTED_TARGET wayland-client)
 
-# KF6 依存 (Phase 2)
+# KF6 依存 (Phase 2 + Phase 4)
 find_package(KF6Config REQUIRED)
 find_package(KF6CalendarCore REQUIRED)
 find_package(KF6Holidays REQUIRED)
+find_package(KF6BluezQt REQUIRED)
 
 qt_standard_project_setup()
 
@@ -104,6 +109,9 @@ qt_add_executable(activenotch
     src/services/CalendarService.cpp
     src/services/MediaService.cpp
     src/services/StatsService.cpp
+    src/services/NetworkService.cpp
+    src/services/BluetoothService.cpp
+    src/services/WeatherService.cpp
 )
 
 # QML モジュール URI は src/NotchWindow.cpp の kQmlModuleUri と一致させること。
@@ -119,6 +127,7 @@ target_include_directories(activenotch PRIVATE src)
 target_link_libraries(activenotch PRIVATE
     Qt6::Quick
     Qt6::DBus
+    Qt6::Network
     Qt6::GuiPrivate
     Qt6::WaylandClientPrivate
     LayerShellQt::Interface
@@ -126,6 +135,7 @@ target_link_libraries(activenotch PRIVATE
     KF6::ConfigCore
     KF6::CalendarCore
     KF6::Holidays
+    KF6::BluezQt
 )
 
 # ---------------------------------------------------------------------------
@@ -251,6 +261,46 @@ target_link_libraries(tst_statsservice PRIVATE
 set_target_properties(tst_statsservice PROPERTIES AUTOMOC ON)
 add_test(NAME tst_statsservice COMMAND tst_statsservice)
 
+# Phase 4 サービスの純粋関数テスト
+qt_add_executable(tst_networkservice
+    tests/tst_networkservice.cpp
+    src/services/NetworkService.cpp
+)
+target_include_directories(tst_networkservice PRIVATE src)
+target_link_libraries(tst_networkservice PRIVATE
+    Qt6::Test
+    Qt6::Core
+    Qt6::DBus
+)
+set_target_properties(tst_networkservice PROPERTIES AUTOMOC ON)
+add_test(NAME tst_networkservice COMMAND tst_networkservice)
+
+qt_add_executable(tst_bluetoothservice
+    tests/tst_bluetoothservice.cpp
+    src/services/BluetoothService.cpp
+)
+target_include_directories(tst_bluetoothservice PRIVATE src)
+target_link_libraries(tst_bluetoothservice PRIVATE
+    Qt6::Test
+    Qt6::Core
+    Qt6::DBus
+)
+set_target_properties(tst_bluetoothservice PROPERTIES AUTOMOC ON)
+add_test(NAME tst_bluetoothservice COMMAND tst_bluetoothservice)
+
+qt_add_executable(tst_weatherservice
+    tests/tst_weatherservice.cpp
+    src/services/WeatherService.cpp
+)
+target_include_directories(tst_weatherservice PRIVATE src)
+target_link_libraries(tst_weatherservice PRIVATE
+    Qt6::Test
+    Qt6::Core
+    Qt6::Network
+)
+set_target_properties(tst_weatherservice PROPERTIES AUTOMOC ON)
+add_test(NAME tst_weatherservice COMMAND tst_weatherservice)
+
 # ---------------------------------------------------------------------------
 # 警告 (Phase 0 の完了条件: -Wall -Wextra で警告ゼロ)
 # ---------------------------------------------------------------------------
@@ -265,6 +315,9 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(tst_quicksettingsservice PRIVATE -Wall -Wextra)
     target_compile_options(tst_mediaservice PRIVATE -Wall -Wextra)
     target_compile_options(tst_statsservice PRIVATE -Wall -Wextra)
+    target_compile_options(tst_networkservice PRIVATE -Wall -Wextra)
+    target_compile_options(tst_bluetoothservice PRIVATE -Wall -Wextra)
+    target_compile_options(tst_weatherservice PRIVATE -Wall -Wextra)
 endif()
 
 # install 規則は Phase 8 で整備する (Phase 0〜7 は ./build/activenotch の直接実行のみ)。
