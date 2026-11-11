@@ -112,6 +112,8 @@ qt_add_executable(activenotch
     src/services/NetworkService.cpp
     src/services/BluetoothService.cpp
     src/services/WeatherService.cpp
+    src/services/NotificationService.cpp
+    src/services/ClipboardService.cpp
 )
 
 # QML モジュール URI は src/NotchWindow.cpp の kQmlModuleUri と一致させること。
@@ -301,6 +303,32 @@ target_link_libraries(tst_weatherservice PRIVATE
 set_target_properties(tst_weatherservice PROPERTIES AUTOMOC ON)
 add_test(NAME tst_weatherservice COMMAND tst_weatherservice)
 
+# Phase 5 サービスの純粋関数テスト
+qt_add_executable(tst_notificationservice
+    tests/tst_notificationservice.cpp
+    src/services/NotificationService.cpp
+)
+target_include_directories(tst_notificationservice PRIVATE src)
+target_link_libraries(tst_notificationservice PRIVATE
+    Qt6::Test
+    Qt6::Core
+    Qt6::DBus
+)
+set_target_properties(tst_notificationservice PROPERTIES AUTOMOC ON)
+add_test(NAME tst_notificationservice COMMAND tst_notificationservice)
+
+qt_add_executable(tst_clipboardservice
+    tests/tst_clipboardservice.cpp
+    src/services/ClipboardService.cpp
+)
+target_include_directories(tst_clipboardservice PRIVATE src)
+target_link_libraries(tst_clipboardservice PRIVATE
+    Qt6::Test
+    Qt6::Core
+)
+set_target_properties(tst_clipboardservice PROPERTIES AUTOMOC ON)
+add_test(NAME tst_clipboardservice COMMAND tst_clipboardservice)
+
 # ---------------------------------------------------------------------------
 # 警告 (Phase 0 の完了条件: -Wall -Wextra で警告ゼロ)
 # ---------------------------------------------------------------------------
@@ -318,6 +346,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(tst_networkservice PRIVATE -Wall -Wextra)
     target_compile_options(tst_bluetoothservice PRIVATE -Wall -Wextra)
     target_compile_options(tst_weatherservice PRIVATE -Wall -Wextra)
+    target_compile_options(tst_notificationservice PRIVATE -Wall -Wextra)
+    target_compile_options(tst_clipboardservice PRIVATE -Wall -Wextra)
 endif()
 
 # install 規則は Phase 8 で整備する (Phase 0〜7 は ./build/activenotch の直接実行のみ)。

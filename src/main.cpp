@@ -24,6 +24,8 @@
 #include "services/NetworkService.h"
 #include "services/BluetoothService.h"
 #include "services/WeatherService.h"
+#include "services/NotificationService.h"
+#include "services/ClipboardService.h"
 
 namespace {
 
@@ -113,6 +115,10 @@ int main(int argc, char *argv[])
     BluetoothService bluetoothService;
     WeatherService weatherService;
 
+    // Phase 5 サービス
+    NotificationService notificationService;
+    ClipboardService clipboardService;
+
     // ---- コンテキストプロパティ登録 --------------------------------------
     // QML 側は `NotchWindow.fullscreenActive` をガード付きで参照する
     // (CONTRACT §2)。Phase 1 では NotchWindow 自身を公開する。
@@ -133,6 +139,8 @@ int main(int argc, char *argv[])
         engine->rootContext()->setContextProperty(QStringLiteral("NetworkService"), &networkService);
         engine->rootContext()->setContextProperty(QStringLiteral("BluetoothService"), &bluetoothService);
         engine->rootContext()->setContextProperty(QStringLiteral("WeatherService"), &weatherService);
+        engine->rootContext()->setContextProperty(QStringLiteral("NotificationService"), &notificationService);
+        engine->rootContext()->setContextProperty(QStringLiteral("ClipboardService"), &clipboardService);
     } else {
         qWarning() << "ActiveNotch: QML エンジンを取得できませんでした。";
     }

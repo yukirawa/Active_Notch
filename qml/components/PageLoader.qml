@@ -32,7 +32,9 @@ Item {
         "media": "pages/Media.qml",
         "stats": "pages/Stats.qml",
         "network": "pages/Network.qml",
-        "weather": "pages/Weather.qml"
+        "weather": "pages/Weather.qml",
+        "notifications": "pages/Notifications.qml",
+        "clipboard": "pages/Clipboard.qml"
     }
 
     // ---- Loader: 動的ページ読み込み -----------------------------------------
