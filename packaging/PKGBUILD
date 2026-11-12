@@ -36,7 +36,7 @@ optdepends=(
 # GitHub のアーカイブはリポジトリ名 (Active_Notch) で展開される。
 _reponame=Active_Notch
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('5800a6867cae088ca05d57e1a784901759f4ee938c7ec0da8d7a88be50fc1da2')
 
 build() {
     cmake -S "$_reponame-$pkgver" -B build -G Ninja \
