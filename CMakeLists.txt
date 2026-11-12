@@ -38,6 +38,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #   - Network              : WeatherService (HTTP)
 #   - KF6BluezQt           : BluetoothService
 #
+# Phase 6 追加分 (サービス実装):
+#   - KF6Service           : LauncherService (KService, KServiceTypeTrader)
+#   - KF6Package           : LauncherService (KDesktopFile)
+#
 # プライベートモジュールを使うと Qt バージョン固定の警告が出るが、
 # このプロジェクトは実機の Qt 6.12 に固定して使うため抑制する。
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
@@ -52,11 +56,17 @@ find_package(LayerShellQt REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(WAYLAND_CLIENT REQUIRED IMPORTED_TARGET wayland-client)
 
-# KF6 依存 (Phase 2 + Phase 4)
 find_package(KF6Config REQUIRED)
 find_package(KF6CalendarCore REQUIRED)
 find_package(KF6Holidays REQUIRED)
 find_package(KF6BluezQt REQUIRED)
+find_package(KF6Service REQUIRED)
+# KF6Package は ECM (extra-cmake-modules) を必要とし、環境によって未導入の可能性があるため
+# .desktop パースは手動実装 (parseDesktopFileManual) で代替し、KF6Package はオプションとする
+# find_package(KF6Package REQUIRED)
+
+# KF6Service 利用可能フラグ
+add_compile_definitions(HAVE_KF6_SERVICE=1)
 
 qt_standard_project_setup()
 
@@ -114,6 +124,8 @@ qt_add_executable(activenotch
     src/services/WeatherService.cpp
     src/services/NotificationService.cpp
     src/services/ClipboardService.cpp
+    src/services/LauncherService.cpp
+    src/services/TrayService.cpp
 )
 
 # QML モジュール URI は src/NotchWindow.cpp の kQmlModuleUri と一致させること。
@@ -138,6 +150,7 @@ target_link_libraries(activenotch PRIVATE
     KF6::CalendarCore
     KF6::Holidays
     KF6::BluezQt
+    KF6::Service
 )
 
 # ---------------------------------------------------------------------------
@@ -329,6 +342,35 @@ target_link_libraries(tst_clipboardservice PRIVATE
 set_target_properties(tst_clipboardservice PROPERTIES AUTOMOC ON)
 add_test(NAME tst_clipboardservice COMMAND tst_clipboardservice)
 
+# Phase 6 サービスの純粋関数テスト
+qt_add_executable(tst_launcherservice
+    tests/tst_launcherservice.cpp
+    src/services/LauncherService.cpp
+)
+target_include_directories(tst_launcherservice PRIVATE src)
+target_link_libraries(tst_launcherservice PRIVATE
+    Qt6::Test
+    Qt6::Core
+    KF6::Service
+    KF6::ConfigCore
+)
+set_target_properties(tst_launcherservice PROPERTIES AUTOMOC ON)
+add_test(NAME tst_launcherservice COMMAND tst_launcherservice)
+
+qt_add_executable(tst_trayservice
+    tests/tst_trayservice.cpp
+    src/services/TrayService.cpp
+)
+target_include_directories(tst_trayservice PRIVATE src)
+target_link_libraries(tst_trayservice PRIVATE
+    Qt6::Test
+    Qt6::Core
+    Qt6::DBus
+    Qt6::Gui
+)
+set_target_properties(tst_trayservice PROPERTIES AUTOMOC ON)
+add_test(NAME tst_trayservice COMMAND tst_trayservice)
+
 # ---------------------------------------------------------------------------
 # 警告 (Phase 0 の完了条件: -Wall -Wextra で警告ゼロ)
 # ---------------------------------------------------------------------------
@@ -348,6 +390,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(tst_weatherservice PRIVATE -Wall -Wextra)
     target_compile_options(tst_notificationservice PRIVATE -Wall -Wextra)
     target_compile_options(tst_clipboardservice PRIVATE -Wall -Wextra)
+    target_compile_options(tst_launcherservice PRIVATE -Wall -Wextra)
+    target_compile_options(tst_trayservice PRIVATE -Wall -Wextra)
 endif()
 
 # install 規則は Phase 8 で整備する (Phase 0〜7 は ./build/activenotch の直接実行のみ)。

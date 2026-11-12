@@ -34,7 +34,9 @@ Item {
         "network": "pages/Network.qml",
         "weather": "pages/Weather.qml",
         "notifications": "pages/Notifications.qml",
-        "clipboard": "pages/Clipboard.qml"
+        "clipboard": "pages/Clipboard.qml",
+        "launcher": "pages/Launcher.qml",
+        "tray": "pages/Tray.qml"
     }
 
     // ---- Loader: 動的ページ読み込み -----------------------------------------
