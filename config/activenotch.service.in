@@ -1,0 +1,20 @@
+[Unit]
+Description=ActiveNotch - Dynamic Island 風ノッチ (KDE Plasma 6 / Wayland)
+Documentation=https://github.com/yukirawa/Active_Notch
+# グラフィカルセッション (Wayland) が立ち上がってから起動する。
+After=graphical-session.target
+PartOf=graphical-session.target
+# Wayland セッション以外では layer-shell が使えないため起動しない。
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=simple
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/activenotch
+# クラッシュ時は少し待って再起動する (KWin スクリプトは起動時に再登録される)。
+Restart=on-failure
+RestartSec=3
+# 標準エラーを journal に残す (QML の警告を確認できる)。
+Environment=QT_FORCE_STDERR_LOGGING=1
+
+[Install]
+WantedBy=graphical-session.target

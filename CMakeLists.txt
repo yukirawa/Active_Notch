@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(ActiveNotch
-    VERSION 0.1.0
+    VERSION 1.0.0
     DESCRIPTION "Plasma 6 (Wayland / KWin) 用 Dynamic Island 風ノッチ"
     LANGUAGES CXX
 )
@@ -131,6 +131,11 @@ qt_add_translations(activenotch
 )
 
 target_include_directories(activenotch PRIVATE src)
+
+# バージョンは CMakeLists.txt の project(VERSION ...) を唯一の情報源とする。
+target_compile_definitions(activenotch PRIVATE
+    ACTIVENOTCH_VERSION="${PROJECT_VERSION}"
+)
 
 target_link_libraries(activenotch PRIVATE
     Qt6::Quick
@@ -390,4 +395,36 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(tst_trayservice PRIVATE -Wall -Wextra)
 endif()
 
-# install 規則は Phase 8 で整備する (Phase 0〜7 は ./build/activenotch の直接実行のみ)。
+# ---------------------------------------------------------------------------
+# インストール規則 (Phase 8)
+# ---------------------------------------------------------------------------
+# install.sh / PKGBUILD は `cmake --install build --prefix <PREFIX>` を使う。
+# desktop / systemd ユニットは ExecStart に実インストール先を埋め込むため、
+# .in テンプレートを configure_file で展開する。
+include(GNUInstallDirs)
+
+# デスクトップエントリ (アプリランチャー用) と systemd --user ユニット。
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/config/dev.yukirawa.activenotch.desktop.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/dev.yukirawa.activenotch.desktop"
+    @ONLY
+)
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/config/activenotch.service.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/activenotch.service"
+    @ONLY
+)
+
+install(TARGETS activenotch
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/dev.yukirawa.activenotch.desktop"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/applications"
+)
+# /usr/local/share/systemd/user も systemd のユーザーユニット探索パスに含まれる。
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/activenotch.service"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/systemd/user"
+)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/config/dev.yukirawa.activenotch.svg"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps"
+)

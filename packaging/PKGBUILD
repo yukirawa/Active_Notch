@@ -1,0 +1,77 @@
+# Maintainer: yukirawa <https://github.com/yukirawa>
+# AUR 登録用 PKGBUILD。リリースタグ v$pkgver のソース tarball をビルドする。
+#
+# ローカルで試す場合:
+#   makepkg -si
+# バージョンを上げる場合:
+#   pkgver と sha256sums を更新する (updpkgsums が便利)。
+pkgname=activenotch
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Dynamic Island 風の多機能ノッチ for KDE Plasma 6 (Wayland / KWin)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/yukirawa/Active_Notch"
+license=('GPL-3.0-or-later')
+depends=(
+    'qt6-base'
+    'qt6-declarative'
+    'qt6-wayland'
+    'qt6-svg'
+    'layer-shell-qt'
+    'kf6-kconfig'
+    'kf6-kcalendarcore'
+    'kf6-kholidays'
+    'kf6-bluez-qt'
+    'kf6-kservice'
+    'kf6-ki18n'
+    'wayland'
+)
+makedepends=('cmake' 'ninja' 'pkgconf')
+optdepends=(
+    'pipewire: 音量制御 (wpctl)'
+    'networkmanager: Wi-Fi / 有線の表示・接続'
+    'bluez: Bluetooth の表示・接続'
+    'wl-clipboard: クリップボード履歴'
+)
+# GitHub のアーカイブはリポジトリ名 (Active_Notch) で展開される。
+_reponame=Active_Notch
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cmake -S "$_reponame-$pkgver" -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr
+    cmake --build build --parallel
+}
+
+package() {
+    DESTDIR="$pkgdir" cmake --install build --prefix /usr
+    install -Dm644 "$_reponame-$pkgver/LICENSE" \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+post_install() {
+    cat <<'EOF'
+ActiveNotch を今すぐ起動し、ログイン時に自動起動するには:
+  systemctl --user daemon-reload
+  systemctl --user enable --now activenotch.service
+
+ログ確認:
+  journalctl --user -u activenotch -f
+
+輝度スライダーが動かない場合は video グループに所属してください:
+  sudo usermod -aG video "$USER"   # 再ログインが必要
+EOF
+}
+
+post_upgrade() {
+    post_install
+}
+
+post_remove() {
+    cat <<'EOF'
+ActiveNotch の systemd ユニットが残っている場合は無効化してください:
+  systemctl --user disable --now activenotch.service
+EOF
+}

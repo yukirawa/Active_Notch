@@ -90,11 +90,15 @@ qml/
 - `scripts/run.sh` … Wayland チェック → 必要ならビルド → アプリ起動 (フォアグラウンド)
 - `scripts/stop.sh` … `pkill -x activenotch`
 - `scripts/verify-ui.sh` … 自動視覚検証: ビルド → `ACTIVENOTCH_PRINT_GEOMETRY=1` で起動 →
-  stdout の `GEOMETRY x=.. y=.. w=.. h=.. scale=.. screen=..` (物理px) をパース →
-  spectacle で全画面スクリーンショット → magick で (a) 中心配置 (|cx-W/2|≤2) (b) サイズ±2px
-  (c) ピル内がデスクトップと異なる色 (d) ピル外周はデスクトップ色 — を検証し PASS/FAIL 表を出力。
+  stdout の `GEOMETRY` / `SCREEN` / `MASK` (すべて**論理px**) をパースし、
+  (a) マスク中心が配置先出力の中央 (±2px) (b) マスクが 220x30 論理px
+  (c) 自ウィンドウ grab の alpha で「ピルが描画され外側が完全透過」
+  (d) マスクがピル領域のみ (e) マスクが出力内 — を検証し PASS/FAIL 表を出力。
+  壁紙アニメーションの影響を避けるため、色差分比較は行わない。
   成果物は `scripts/artifacts/` に保存、FAIL 時は非ゼロ exit。trap で確実にアプリ停止
 - 環境変数 `ACTIVENOTCH_PRINT_GEOMETRY=1` … NotchWindow が表示時 + ジオメトリ変更時に上記行を stdout 出力
+- 環境変数 `ACTIVENOTCH_GRAB=<path>` … 1.5 秒後に `grabWindow()` の PNG (alpha 付き) を保存し `GRAB` 行を出力
+- 環境変数 `ACTIVENOTCH_START_EXPANDED=1` … 起動直後に展開状態へ遷移 (スクリーンショット用)
 - `tests/` … QtTest 単体テスト (パース純関数中心)。CMake: `enable_testing()` + `qt_add_executable` + `add_test`。
   `scripts/run-tests.sh` → `ctest --test-dir build --output-on-failure`
 - README に「テスト手順」セクション (手動テスト: ホバー/クリック/Esc と自動テスト: scripts/) を記載
@@ -109,11 +113,8 @@ qml/
 | 4 | 4 | Network/Bluetooth/Weather | Network/Weather ページ + ナビ/コンポーネント | **完了** (3683207) |
 | 5 | 5 | Notifications/Clipboard | Notifications/Clipboard ページ + ナビ/コンポーネント | **完了** (1157b2d) |
 | 6 | 6 | Launcher/Tray(SNI) | Launcher/Tray ページ + ナビ/コンポーネント | **完了** (2e77f11) |
-| 7 | 7 | 設定UI・永続化・i18n (qt_add_translations) | Settings ページ | **実行中** |
-| 5 | 5 | Notifications/Clipboard | Notifications/Clipboard ページ | 未 |
-| 6 | 6 | Launcher/Tray(SNI) | Launcher/Tray ページ | 未 |
-| 7 | 7 | 設定UI・永続化・i18n (qt_add_translations) | Settings ページ | 未 |
-| 8 | 8 | install/uninstall/systemd/PKGBUILD/README | 最終ポリッシュ | 未 |
+| 7 | 7 | 設定UI・永続化・i18n (qt_add_translations) | Settings ページ | **完了** (8a2ac78) |
+| 8 | 8 | install/uninstall/systemd/PKGBUILD/README | 最終ポリッシュ | **完了** (v1.0.0) |
 
 ## 7. 実装済みメモ (Phase 0 の知見・必読)
 
@@ -124,3 +125,16 @@ qml/
 - Theme.qml は `QT_QML_SINGLETON_TYPE TRUE` を set_source_files_properties で付与済み
 - KWin: ブラー有効 (BlurStrength=11)。Wayland セッション = WAYLAND_DISPLAY=wayland-1
 - git: main ブランチ、Phase 完了ごとに総監督がコミット (fd1b42c = Phase 0)
+- **QDBusArgument の読み取りは必ず `const`**: 非 const だと `beginStructure()` /
+  `beginArray()` が書き込み用 overload になり、read-only の引数へ書き込もうとして SIGABRT する
+- **DBusMenu の実シグネチャ**は `LayoutUpdated(u,i)` / `ItemsPropertiesUpdated(a(ia{sv}),a(ias))`。
+  複合型は `QDBusInterface` の動的 metaobject で解決できないため、
+  `QDBusConnection::connect(..., 署名文字列, ...)` の overload を使う
+- **アイコン**: Qt 6.12 の `Image.source` は `data:` URL を描画できない。
+  `image://svg/<percent-encoded-svg>` の `SvgIconProvider` と、
+  トレイの PNG は `QStandardPaths::CacheLocation/trayicons/*.png` + `file://` を使う
+- **透過**: 最初の QQuickWindow 生成前に `QQuickWindow::setDefaultAlphaBuffer(true)` を呼ぶ
+- **i18n**: `qt_add_translations` の `.qm` は `:/i18n/ja_JP.qm` / `:/i18n/en_US.qm` に埋め込まれる
+- **二重起動防止**: D-Bus 名 `dev.yukirawa.activenotch` の所有権で判定 (プロセス終了時に自動解放)
+- **配布**: `config/*.in` を `configure_file` で展開し、`cmake --install --prefix <PREFIX>` で配置する。
+  systemd ユニットは `/usr/local/share/systemd/user` も探索パスに含まれる

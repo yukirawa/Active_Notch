@@ -408,6 +408,16 @@ void NotchWindow::show()
 
     // 描画検証用の自ウィンドウ grab (環境変数 ON 時)。
     scheduleSelfGrab();
+
+    // スクリーンショット撮影用: 起動直後に展開状態へ遷移させる。
+    // 通常のホバーを使わずに展開 UI を確認したいとき用 (README に記載)。
+    if (qEnvironmentVariableIsSet("ACTIVENOTCH_START_EXPANDED") && m_notch) {
+        QTimer::singleShot(500, this, [this]() {
+            if (m_notch) {
+                QMetaObject::invokeMethod(m_notch, "expand");
+            }
+        });
+    }
 }
 
 void NotchWindow::scheduleSelfGrab()

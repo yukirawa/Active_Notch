@@ -170,6 +170,7 @@ QtObject {
     readonly property color accentSoft: Qt.rgba(
         accent.r, accent.g, accent.b, 0.85)
 
-    // アプリバージョン (CMake project VERSION と同期。Phase 7 で Config 化)
-    readonly property string appVersion: "0.1.0"
+    // アプリバージョン。C++ 側の QCoreApplication::setApplicationVersion()
+    // (CMake project(VERSION ...) 由来) を唯一の情報源とする。
+    readonly property string appVersion: Qt.application.version
 }

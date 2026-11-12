@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=ActiveNotch
+GenericName=Dynamic Island Notch
+Comment=Plasma 6 (Wayland) 向け Dynamic Island 風ノッチ
+Comment[en_US]=Dynamic Island style notch for Plasma 6 (Wayland)
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/activenotch
+Icon=dev.yukirawa.activenotch
+Terminal=false
+Categories=Utility;
+Keywords=notch;dynamic island;plasma;kde;wayland;status;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after=panel
+OnlyShowIn=KDE;

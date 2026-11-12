@@ -1,5 +1,9 @@
 #include <QCoreApplication>
+#include <QDBusConnection>
+#include <QDBusConnectionInterface>
+#include <QDBusReply>
 #include <QDebug>
+#include <QString>
 #include <QGuiApplication>
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -12,6 +16,8 @@
 #include <QSocketNotifier>
 
 #include <csignal>
+#include <cstdio>
+#include <cstring>
 #include <sys/signalfd.h>
 #include <unistd.h>
 #endif
@@ -33,7 +39,41 @@
 #include "services/LauncherService.h"
 #include "services/TrayService.h"
 
+// CMakeLists.txt の project(VERSION ...) から渡される。
+#ifndef ACTIVENOTCH_VERSION
+#define ACTIVENOTCH_VERSION "0.0.0"
+#endif
+
 namespace {
+
+/**
+ * GUI を初期化する前に処理する引数 (--version / --help)。
+ * 戻り値 true のときは main() をそのまま終了させる。
+ */
+bool handleEarlyArguments(int argc, char *argv[])
+{
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "--version") == 0 || std::strcmp(argv[i], "-v") == 0) {
+            std::printf("ActiveNotch %s\n", ACTIVENOTCH_VERSION);
+            return true;
+        }
+        if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
+            std::printf(
+                "ActiveNotch %s - Plasma 6 (Wayland) 向け Dynamic Island 風ノッチ\n"
+                "\n"
+                "使い方: activenotch [オプション]\n"
+                "  -h, --help     このヘルプを表示して終了\n"
+                "  -v, --version  バージョンを表示して終了\n"
+                "\n"
+                "環境変数:\n"
+                "  ACTIVENOTCH_PRINT_GEOMETRY=1  配置/マスク情報を stdout に出力\n"
+                "  ACTIVENOTCH_GRAB=<path>       自ウィンドウを PNG 保存 (検証用)\n",
+                ACTIVENOTCH_VERSION);
+            return true;
+        }
+    }
+    return false;
+}
 
 #ifdef Q_OS_LINUX
 /**
@@ -60,6 +100,11 @@ int installTerminationSignalFd()
 
 int main(int argc, char *argv[])
 {
+    // --version / --help は GUI (Wayland) を初期化せずに応答する。
+    if (handleEarlyArguments(argc, argv)) {
+        return 0;
+    }
+
 #ifdef Q_OS_LINUX
     // 重要: シグナルマスクは QGuiApplication 生成前 (他スレッドができる前) に
     // 設定する。生成後だとシグナルが別スレッドへ配送され既定動作で即終了し、
@@ -78,7 +123,7 @@ int main(int argc, char *argv[])
     // アプリ識別情報。Phase 7 の KConfig 永続化
     // (~/.config/activenotch/) の前提となる値。
     QCoreApplication::setApplicationName(QStringLiteral("activenotch"));
-    QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0"));
+    QCoreApplication::setApplicationVersion(QStringLiteral(ACTIVENOTCH_VERSION));
     QCoreApplication::setOrganizationDomain(QStringLiteral("dev.yukirawa"));
     QCoreApplication::setOrganizationName(QStringLiteral("yukirawa"));
     QGuiApplication::setApplicationDisplayName(QStringLiteral("ActiveNotch"));
@@ -128,6 +173,21 @@ int main(int argc, char *argv[])
         qWarning() << "ActiveNotch: Wayland 以外のプラットフォーム (" << platform
                    << ") で起動されました。layer-shell による配置は Wayland 専用のため、"
                       "ノッチは正しく配置されません。";
+    }
+
+    // ---- 二重起動防止 ----------------------------------------------------
+    // systemd --user と XDG autostart が併用された場合などに、ノッチが
+    // 二重に表示されるのを防ぐ。FullscreenDetector が登録する D-Bus
+    // サービス名を既存インスタンスの判定に使う (プロセス終了時に自動解放)。
+    if (QDBusConnection bus = QDBusConnection::sessionBus(); bus.isConnected()) {
+        if (QDBusConnectionInterface *busIface = bus.interface()) {
+            const QDBusReply<bool> alreadyRunning =
+                busIface->isServiceRegistered(QStringLiteral("dev.yukirawa.activenotch"));
+            if (alreadyRunning.isValid() && alreadyRunning.value()) {
+                qInfo() << "ActiveNotch: 既に別インスタンスが動作中のため終了します。";
+                return 0;
+            }
+        }
     }
 
     // ---- サービス生成 ----------------------------------------------------
