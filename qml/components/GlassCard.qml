@@ -36,11 +36,35 @@ Item {
     // 内側の余白
     property real padding: Theme.cardPadding
 
-    // contentData 使用時は呼び出し側で height を指定すること。
-    // プロパティ使用時は内容から暗黙高さを計算する。
-    implicitHeight: builtIn.visible
-        ? builtIn.implicitHeight + padding * 2
-        : height
+    // contentData 使用時の子要素の増減・リサイズを暗黙高さの再計算に反映する
+    // ためのリビジョン (childrenRect は変更通知を持たないため)。
+    property int contentRevision: 0
+
+    // プロパティ使用時はビルトイン内容から、宣言的使用時は子要素の
+    // 外接矩形から暗黙高さを計算する。
+    // height 自身を参照すると自己参照ループになるため参照しない。
+    implicitHeight: computeImplicitHeight(contentRevision)
+
+    function computeImplicitHeight(revision) {
+        if (builtIn.visible)
+            return builtIn.implicitHeight + padding * 2
+        return measureContent() + padding * 2
+    }
+
+    // 子要素の下端 (height と implicitHeight の大きい方) の最大値。
+    // anchors.fill された子は height が親由来になるため、implicitHeight も
+    // 併用して内容の実寸を失わないようにする。
+    function measureContent() {
+        let h = 0
+        for (let i = 0; i < contentHost.children.length; i++) {
+            const child = contentHost.children[i]
+            if (!child.visible)
+                continue
+            const childHeight = Math.max(child.height, child.implicitHeight)
+            h = Math.max(h, child.y + childHeight)
+        }
+        return h
+    }
 
     // ---- 背景: 半透明ダークベース ----------------------------------------
     Rectangle {
@@ -64,7 +88,8 @@ Item {
     // 角丸からはみ出さないよう高さを (height - radius) 以内にクランプ。
     Rectangle {
         width: parent.width
-        height: Math.min(Theme.specularHeight, parent.height - card.radius)
+        // 高さが radius 未満でも負値にならないようクランプする。
+        height: Math.max(0, Math.min(Theme.specularHeight, parent.height - card.radius))
         gradient: Gradient {
             GradientStop { position: 0.0; color: Theme.specular }
             GradientStop { position: 1.0; color: Theme.specularFade }
@@ -86,6 +111,8 @@ Item {
         id: contentHost
         anchors.fill: parent
         anchors.margins: card.padding
+        // 子の増減・リサイズで暗黙高さを再評価する。
+        onChildrenRectChanged: card.contentRevision += 1
     }
 
     // プロパティ使用時のビルトインレイアウト

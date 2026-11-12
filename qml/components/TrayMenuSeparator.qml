@@ -10,7 +10,8 @@ Item {
 
     Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
-        width: parent.width - 16
+        anchors.verticalCenter: parent.verticalCenter
+        width: Math.max(0, parent.width - 16)
         height: 1
         color: Theme.borderGlow
         opacity: 0.5

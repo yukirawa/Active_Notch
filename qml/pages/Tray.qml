@@ -55,7 +55,7 @@ Item {
     }
 
     function refreshTrayItems() {
-        if (typeof TrayService !== "undefined" && TrayService.items) {
+        if (typeof TrayService !== "undefined" && TrayService !== null && TrayService.items) {
             root.trayItems = TrayService.items
         } else {
             root.trayItems = []
@@ -103,7 +103,7 @@ Item {
     }
 
     function getDefaultIcon() {
-        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='22' height='22'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z'/>"
+        return "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='22' height='22'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z'/></svg>"
     }
 
     // ---- メニューモデルを MenuItem に変換 ---------------------------------------
@@ -169,7 +169,7 @@ Item {
                     Image {
                         width: 32
                         height: 32
-                        source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='32' height='32'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/>"
+                        source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='32' height='32'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/></svg>"
                         color: Theme.accentSoft
                     }
 
@@ -219,7 +219,7 @@ Item {
                         Image {
                             width: 32
                             height: 32
-                            source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='32' height='32'><path fill='%239FB8B4' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z'/>"
+                            source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='32' height='32'><path fill='%239FB8B4' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z'/></svg>"
                             opacity: 0.4
                         }
 
@@ -265,6 +265,8 @@ Item {
                         spacing: 4
 
                         // アイコン
+                        // Image.color は Qt 6 に無いため、ホバー時は opacity で
+                        // 強調する (SVG の塗り色はそのまま)。
                         Image {
                             id: trayIcon
                             width: 28
@@ -272,12 +274,12 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             source: root.getIconSource(modelData.iconSource)
                             fillMode: Image.PreserveAspectFit
-                            color: trayDelegate.isHovered || trayDelegate.isMenuOpen ? Theme.accent : Theme.textColor
-                            Behavior on color {
-                                ColorAnimation { duration: 120; easing.type: Easing.OutCubic }
-                            }
                             // ステータスに応じた微細な視覚フィードバック
-                            opacity: modelData.status === "passive" ? 0.5 : 1.0
+                            opacity: modelData.status === "passive" ? 0.5
+                                : (trayDelegate.isHovered || trayDelegate.isMenuOpen ? 1.0 : 0.85)
+                            Behavior on opacity {
+                                NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                            }
                         }
 
                         // タイトル (ツールチップ用に短縮)
@@ -383,7 +385,7 @@ Item {
                     Image {
                         width: 16
                         height: 16
-                        source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16'><path fill='%239FB8B4' d='M2 17h20v2H2zm0-7h20v2H2zm0-7h20v2H2z'/>"
+                        source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16'><path fill='%239FB8B4' d='M2 17h20v2H2zm0-7h20v2H2zm0-7h20v2H2z'/></svg>"
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
@@ -399,7 +401,7 @@ Item {
                     Image {
                         width: 16
                         height: 16
-                        source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16'><path fill='%239FB8B4' d='M2 17h20v2H2zm0-7h20v2H2zm0-7h20v2H2z'/>"
+                        source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16'><path fill='%239FB8B4' d='M2 17h20v2H2zm0-7h20v2H2zm0-7h20v2H2z'/></svg>"
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter

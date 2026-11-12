@@ -6,15 +6,23 @@ import dev.yukirawa.activenotch
 //
 // TabBar から pageId を受け取り、対応する qml/pages/*.qml を Loader で読み込む。
 // 事前ロードせず、切り替え時に初回ロードすることで起動を高速化する。
-// Loader の sourceComponent または source で動的切り替え。
+//
+// 重要 (Qt 6.12):
+//   - Loader.sourceComponent は Component 専用。URL を渡す場合は source を使う。
+//     以前 sourceComponent に Qt.resolvedUrl(...) を渡していたため
+//     "Unable to assign QUrl to QQmlComponent*" となりページが一切表示されなかった。
+//   - ルート Item で parent.width/height にバインドすると、親が Column のとき
+//     循環参照 (polish loop) を起こす。サイズは呼び出し側の Layout に委ねる。
 Item {
     id: root
-    width: parent ? parent.width : 604
-    height: parent ? parent.height : 320
 
     // ---- 公開 API -----------------------------------------------------------
     // 現在表示中の pageId (TabBar と双方向バインディング)
     property string currentPage: "quick"
+
+    // レイアウトに参加しない場合の安全な既定サイズ
+    implicitWidth: 604
+    implicitHeight: 380
 
     // ページロード要求 (TabBar から呼び出し)
     function loadPage(pageId) {
@@ -23,51 +31,56 @@ Item {
         }
     }
 
-    // ページ定義マップ: pageId → QML ファイルパス (リソースパス)
+    // ページ定義マップ: pageId → QML ファイルパス
+    // (このファイルは components/ 配下にあるため pages/ へは ../pages/)
+    // 値は実際のファイル名 (大文字小文字を厳密に一致させる。
+    // Linux の qrc は case-sensitive のため)。
     readonly property var pageMap: {
-        "quick": "pages/Quick.qml",
-        "battery": "pages/Battery.qml",
-        "sound": "pages/Sound.qml",
-        "calendar": "pages/Calendar.qml",
-        "media": "pages/Media.qml",
-        "stats": "pages/Stats.qml",
-        "network": "pages/Network.qml",
-        "weather": "pages/Weather.qml",
-        "notifications": "pages/Notifications.qml",
-        "clipboard": "pages/Clipboard.qml",
-        "launcher": "pages/Launcher.qml",
-        "tray": "pages/Tray.qml"
+        "quick": "Quick",
+        "battery": "Battery",
+        "sound": "Sound",
+        "calendar": "Calendar",
+        "media": "Media",
+        "stats": "Stats",
+        "network": "Network",
+        "weather": "Weather",
+        "notifications": "Notifications",
+        "clipboard": "Clipboard",
+        "launcher": "Launcher",
+        "tray": "Tray",
+        "settings": "Settings"
     }
 
     // ---- Loader: 動的ページ読み込み -----------------------------------------
     Loader {
         id: pageLoader
         anchors.fill: parent
-        // sourceComponent で事前定義した Component を切り替える方式
-        // (source だと相対パス解決が面倒なため、Component 方式を採用)
-        sourceComponent: getPageComponent(root.currentPage)
+        source: root.getPageSource(root.currentPage)
         asynchronous: true  // 非同期ロードで UI ブロックを避ける
 
-        // ロード完了時の処理
-        onStatusChanged: {
-            if (pageLoader.status === Loader.Ready) {
-                // 必要ならここで初期化コールバックを呼ぶ
+        // ロードされたページを Loader のサイズへ追従させる。
+        // ページ側が width/height を固定していても、ここで上書きして
+        // パネルいっぱいに表示する (循環しないよう Loader の実寸を参照)。
+        onLoaded: {
+            if (item) {
+                item.width = Qt.binding(function() { return pageLoader.width })
+                item.height = Qt.binding(function() { return pageLoader.height })
             }
         }
     }
 
-    // pageId から Component を取得 (初回アクセス時に Qt.createComponent 相当が走る)
-    function getPageComponent(pageId) {
-        const path = root.pageMap[pageId]
-        if (!path) {
-            // 未知の pageId: Quick にフォールバック
-            return Qt.resolvedUrl("pages/Quick.qml")
+    // pageId から QML の URL を取得する。
+    // 未知の pageId は Quick にフォールバックする。
+    function getPageSource(pageId) {
+        const name = root.pageMap[pageId]
+        if (!name) {
+            return Qt.resolvedUrl("../pages/Quick.qml")
         }
-        return Qt.resolvedUrl(path)
+        return Qt.resolvedUrl("../pages/" + name + ".qml")
     }
 
     // currentPage 変更時に Loader を切り替え
     onCurrentPageChanged: {
-        pageLoader.sourceComponent = getPageComponent(root.currentPage)
+        pageLoader.source = getPageSource(root.currentPage)
     }
 }

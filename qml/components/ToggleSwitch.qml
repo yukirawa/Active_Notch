@@ -8,13 +8,20 @@ Item {
 
     // ---- 公開 API -----------------------------------------------------------
     property bool checked: false
-    property bool enabled: true
+    // enabled は Item 標準プロパティを使用する (再宣言しない)。
     signal toggled(bool newState)
 
-    readonly property real width: 52
-    readonly property real height: 28
+    // width / height は QQuickItem の final プロパティのため再宣言できない。
+    // 既定サイズは width / height へのバインディングで与える。
+    readonly property real switchWidth: 52
+    readonly property real switchHeight: 28
     readonly property real thumbSize: 22
     readonly property real padding: 3
+
+    implicitWidth: switchWidth
+    implicitHeight: switchHeight
+    width: implicitWidth
+    height: implicitHeight
 
     // アニメーション
     property real thumbX: root.checked ? (root.width - root.thumbSize - root.padding) : root.padding
@@ -44,6 +51,18 @@ Item {
         }
     }
 
+    // サムの影 (DropShadow の代替: 半透明の円を 1 枚重ねる)
+    Rectangle {
+        x: root.thumbX
+        y: root.padding + 1
+        width: root.thumbSize
+        height: root.thumbSize
+        radius: root.thumbSize / 2
+        color: Qt.rgba(Theme.shadowColor.r, Theme.shadowColor.g,
+                       Theme.shadowColor.b, 0.3 * Theme.shadowOpacity)
+        opacity: root.enabled ? 1 : 0
+    }
+
     // サム (つまみ)
     Rectangle {
         id: thumb
@@ -55,15 +74,6 @@ Item {
         color: Theme.textColor
         border.width: Theme.borderWidth
         border.color: root.checked ? Theme.accent : Theme.borderGlow
-        // 影
-        layer.enabled: true
-        layer.effect: DropShadow {
-            horizontalOffset: 0
-            verticalOffset: 1
-            radius: 3
-            samples: 8
-            color: Qt.rgba(0, 0, 0, 0.3)
-        }
     }
 
     // タッチ領域

@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Layouts
 
 // ActiveNotch ノッチ本体 (Phase 1): 状態機械 + 外殻 + 開閉アニメーション。
 //
@@ -38,6 +39,15 @@ Item {
     // (アニメ残渣がマスクに混入しないための仕様)。
     signal shapeSettled(real x, real y, real w, real h, real radius)
 
+    // アニメ中の実形状 (ブラー領域を毎フレーム追従させるためのシグナル)。
+    // shapeSettled だけだとスプリング停止までブラーが旧形状に残り、
+    // 「開くと透明 → 後からくすみ」「閉じるとブラーが残る」原因になる。
+    signal shapeGeometryChanged(real x, real y, real w, real h, real radius)
+
+    // 状態遷移時の到達目標形状 (入力マスクを即時更新するためのシグナル)。
+    // ブラーは実形状、入力マスクは到達目標で更新する (役割を分離)。
+    signal shapeTargetChanged(real x, real y, real w, real h, real radius)
+
     // 全画面退避 (C++ の FullscreenDetector / NotchWindow.fullscreenActive)。
     // typeof ガードは C++ 侧の実装が並行中でも起動できるようにするためのもの。
     readonly property bool fullscreenActive: typeof NotchWindow !== "undefined"
@@ -67,7 +77,12 @@ Item {
         + "," + targetWidth.toFixed(3) + "," + targetHeight.toFixed(3)
         + "," + targetRadius.toFixed(3)
     property bool morphPending: false
-    onTargetGeomKeyChanged: morphPending = true
+    onTargetGeomKeyChanged: {
+        morphPending = true
+        // 入力マスクは到達目標へ即時更新する (展開直後からクリック可能にする)。
+        // ブラーは shapeGeometryChanged 側で実形状に追従させる。
+        root.shapeTargetChanged(targetX, targetY, targetWidth, targetHeight, targetRadius)
+    }
 
     // x/y/width/height/radius の 5 スプリングがすべて停止しているか
     readonly property bool morphing: xSpring.running || ySpring.running
@@ -99,6 +114,11 @@ Item {
     // マスク更新用の発火 (到達目標ジオメトリを渡す)
     function emitSettled() {
         root.shapeSettled(targetX, targetY, targetWidth, targetHeight, targetRadius)
+    }
+
+    // ブラー追従用の発火 (アニメ中の実形状を渡す)
+    function emitGeometry() {
+        root.shapeGeometryChanged(shape.x, shape.y, shape.width, shape.height, shape.radius)
     }
 
     Component.onCompleted: emitSettled()  // 起動時 1 回 (collapsed ジオメトリ)
@@ -171,11 +191,55 @@ Item {
         opacity: root.hiddenByFullscreen ? 0 : 1
 
         // --- 形状モーフ: SpringAnimation (パラメータは Theme トークン) -------
-        Behavior on x { SpringAnimation { id: xSpring; mass: Theme.springMass; spring: Theme.springSpring; damping: Theme.springDamping } }
-        Behavior on y { SpringAnimation { id: ySpring; mass: Theme.springMass; spring: Theme.springSpring; damping: Theme.springDamping } }
-        Behavior on width { SpringAnimation { id: wSpring; mass: Theme.springMass; spring: Theme.springSpring; damping: Theme.springDamping } }
-        Behavior on height { SpringAnimation { id: hSpring; mass: Theme.springMass; spring: Theme.springSpring; damping: Theme.springDamping } }
-        Behavior on radius { SpringAnimation { id: rSpring; mass: Theme.springMass; spring: Theme.springSpring; damping: Theme.springDamping } }
+        // 開く時は弾む手触り、閉じる時は振動を抑えて素早く収束させる。
+        // (閉じ遅れ・ブラー残留の体感を改善する)
+        Behavior on x {
+            SpringAnimation {
+                id: xSpring
+                mass: Theme.springMass
+                spring: root.open ? Theme.springSpring : Theme.springSpringClose
+                damping: root.open ? Theme.springDamping : Theme.springDampingClose
+            }
+        }
+        Behavior on y {
+            SpringAnimation {
+                id: ySpring
+                mass: Theme.springMass
+                spring: root.open ? Theme.springSpring : Theme.springSpringClose
+                damping: root.open ? Theme.springDamping : Theme.springDampingClose
+            }
+        }
+        Behavior on width {
+            SpringAnimation {
+                id: wSpring
+                mass: Theme.springMass
+                spring: root.open ? Theme.springSpring : Theme.springSpringClose
+                damping: root.open ? Theme.springDamping : Theme.springDampingClose
+            }
+        }
+        Behavior on height {
+            SpringAnimation {
+                id: hSpring
+                mass: Theme.springMass
+                spring: root.open ? Theme.springSpring : Theme.springSpringClose
+                damping: root.open ? Theme.springDamping : Theme.springDampingClose
+            }
+        }
+        Behavior on radius {
+            SpringAnimation {
+                id: rSpring
+                mass: Theme.springMass
+                spring: root.open ? Theme.springSpring : Theme.springSpringClose
+                damping: root.open ? Theme.springDamping : Theme.springDampingClose
+            }
+        }
+
+        // ブラー領域をアニメ中の実形状へ毎フレーム追従させる。
+        onXChanged: root.emitGeometry()
+        onYChanged: root.emitGeometry()
+        onWidthChanged: root.emitGeometry()
+        onHeightChanged: root.emitGeometry()
+        onRadiusChanged: root.emitGeometry()
 
         // 全画面退避: shape を y 方向に -高さ 分スライド (ウィンドウ外へは出さず
         // クリップで隠れる) + opacity フェード。false で復帰。
@@ -230,13 +294,15 @@ Item {
             readonly property real shapeHeight: shape.height + overhang
             readonly property real visibleTopPos: overhang / shapeHeight
 
-            // 1) ベース: 半透明ダーク
+            // 1) ベース: 半透明ダーク。
+            //    展開時は面積が大きいため panelBg (より薄い) に切り替える。
+            //    不透明度はアニメせず即時切替 (「透明→くすみ」の再発防止)。
             Rectangle {
                 width: parent.width
                 height: background.shapeHeight
                 y: -background.overhang
                 radius: shape.radius
-                color: Theme.bgSurface
+                color: root.open ? Theme.panelBg : Theme.bgSurface
             }
 
             // 2) くすみ Frutiger Aero: 淡いアクア → くすみグレーの縦グラデ
@@ -250,6 +316,15 @@ Item {
                     GradientStop { position: background.visibleTopPos; color: Theme.overlayTop }
                     GradientStop { position: 1.0; color: Theme.overlayBottom }
                 }
+            }
+
+            // 2b) 乳白色フロスト床: 暗い壁紙でも黒一色に落とさない。
+            Rectangle {
+                width: parent.width
+                height: background.shapeHeight
+                y: -background.overhang
+                radius: shape.radius
+                color: Theme.haze
             }
 
             // 3) 上端スペキュラハイライト (下側コーナー開始位置以内にクランプ)
@@ -323,16 +398,19 @@ Item {
                 anchors.fill: parent
                 visible: root.open
 
-                Column {
+                // 外側は ColumnLayout。Column だと PageLoader の height バインドと
+                // 親の暗黙高さが循環して polish ループになるため Layout に統一する。
+                ColumnLayout {
                     x: Theme.panelPadding
                     y: Theme.panelPadding
                     width: parent.width - Theme.panelPadding * 2
+                    height: parent.height - Theme.panelPadding * 2
                     spacing: 12
 
                     // ブロック 0: 大きな時計 + 日本語の日付 (時差フェード)
                     Column {
                         id: clockBlock
-                        width: parent.width
+                        Layout.fillWidth: true
                         spacing: 4
                         opacity: root.open ? 1 : 0
                         Behavior on opacity {
@@ -370,22 +448,23 @@ Item {
                     // TabBar: ページ切り替えナビゲーション (時差フェード)
                     TabBar {
                         id: tabBar
-                        width: parent.width
+                        Layout.fillWidth: true
                         height: 40
                         currentPage: pageLoader.currentPage
                         tabs: [
-                            { pageId: "quick", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z'/>", label: qsTr("クイック"), tooltip: qsTr("クイック設定") },
-                            { pageId: "battery", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33V21.67C7 22.4 7.6 23 8.33 23h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zM13 18.33l-2.47-2.47c-.23-.23-.61-.23-.84 0L7.33 18.34c-.23.23-.23.61 0 .84l2.47 2.47c.23.23.61.23.84 0l3.67-3.67c.23-.23.23-.61 0-.84l-2.47-2.47z'/>", label: qsTr("バッテリー"), tooltip: qsTr("バッテリー情報") },
-                            { pageId: "sound", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z'/>", label: qsTr("音量"), tooltip: qsTr("音量・輝度") },
-                            { pageId: "calendar", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z'/>", label: qsTr("カレンダー"), tooltip: qsTr("月間カレンダー") },
-                            { pageId: "media", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/>", label: qsTr("メディア"), tooltip: qsTr("メディアコントロール") },
-                            { pageId: "stats", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z'/>", label: qsTr("統計"), tooltip: qsTr("システム統計") },
-                            { pageId: "network", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z'/>", label: qsTr("ネットワーク"), tooltip: qsTr("Wi-Fi ネットワーク管理") },
-                            { pageId: "weather", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/>", label: qsTr("天気"), tooltip: qsTr("現在の天気と予報") },
-                            { pageId: "notifications", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-5c0-2.48 1.51-4.5 3.5-4.5s3.5 2.02 3.5 4.5v5z'/>", label: qsTr("通知"), tooltip: qsTr("通知履歴・DND") },
-                            { pageId: "clipboard", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 16H5V4h14v14zM14 10V6.5l-4 4 4 4V13h5c.55 0 1 .45 1 1s-.45 1-1 1H9c-.55 0-1-.45-1-1s.45-1 1-1h5z'/>", label: qsTr("クリップボード"), tooltip: qsTr("クリップボード履歴") },
-                            { pageId: "launcher", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm0 2v12h16V6H4zm6 4h2v8h-2V10zm-4 0h2v8h-2V10zm8 0h2v8h-2V10z'/>", label: qsTr("ランチャー"), tooltip: qsTr("アプリ検索・計算") },
-                            { pageId: "tray", icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M20 6h-3V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2zm-4 2v2h4V8h-4zm-6 0v2h4V8h-4zm-6 0v2h4V8H6z'/>", label: qsTr("トレイ"), tooltip: qsTr("システムトレイ") }
+                            { pageId: "quick", icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z'/></svg>", label: qsTr("クイック"), tooltip: qsTr("クイック設定") },
+                            { pageId: "battery", icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33V21.67C7 22.4 7.6 23 8.33 23h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zM13 18.33l-2.47-2.47c-.23-.23-.61-.23-.84 0L7.33 18.34c-.23.23-.23.61 0 .84l2.47 2.47c.23.23.61.23.84 0l3.67-3.67c.23-.23.23-.61 0-.84l-2.47-2.47z'/></svg>", label: qsTr("バッテリー"), tooltip: qsTr("バッテリー情報") },
+                            { pageId: "sound", icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z'/></svg>", label: qsTr("音量"), tooltip: qsTr("音量・輝度") },
+                            { pageId: "calendar", icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z'/></svg>", label: qsTr("カレンダー"), tooltip: qsTr("月間カレンダー") },
+                            { pageId: "media", icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/></svg>", label: qsTr("メディア"), tooltip: qsTr("メディアコントロール") },
+                            { pageId: "stats", icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z'/></svg>", label: qsTr("統計"), tooltip: qsTr("システム統計") },
+                            { pageId: "network", icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z'/></svg>", label: qsTr("ネットワーク"), tooltip: qsTr("Wi-Fi ネットワーク管理") },
+                            { pageId: "weather", icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/></svg>", label: qsTr("天気"), tooltip: qsTr("現在の天気と予報") },
+                            { pageId: "notifications", icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-5c0-2.48 1.51-4.5 3.5-4.5s3.5 2.02 3.5 4.5v5z'/></svg>", label: qsTr("通知"), tooltip: qsTr("通知履歴・DND") },
+                            { pageId: "clipboard", icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 16H5V4h14v14zM14 10V6.5l-4 4 4 4V13h5c.55 0 1 .45 1 1s-.45 1-1 1H9c-.55 0-1-.45-1-1s.45-1 1-1h5z'/></svg>", label: qsTr("クリップボード"), tooltip: qsTr("クリップボード履歴") },
+                            { pageId: "launcher", icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm0 2v12h16V6H4zm6 4h2v8h-2V10zm-4 0h2v8h-2V10zm8 0h2v8h-2V10z'/></svg>", label: qsTr("ランチャー"), tooltip: qsTr("アプリ検索・計算") },
+                            { pageId: "tray", icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M20 6h-3V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2zm-4 2v2h4V8h-4zm-6 0v2h4V8h-4zm-6 0v2h4V8H6z'/></svg>", label: qsTr("トレイ"), tooltip: qsTr("システムトレイ") },
+                            { pageId: "settings", icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z'/></svg>", label: qsTr("設定"), tooltip: qsTr("アプリ設定") }
                         ]
                         opacity: root.open ? 1 : 0
                         Behavior on opacity {
@@ -407,7 +486,7 @@ Item {
                     // ページローダー: 選択されたページを動的ロード (時差フェード)
                     PageLoader {
                         id: pageLoader
-                        width: parent.width
+                        Layout.fillWidth: true
                         Layout.fillHeight: true
                         opacity: root.open ? 1 : 0
                         Behavior on opacity {
@@ -428,7 +507,7 @@ Item {
                     // 操作ヒント (時差フェード)
                     Text {
                         id: hintBlock
-                        width: parent.width
+                        Layout.fillWidth: true
                         horizontalAlignment: Text.AlignHCenter
                         text: root.notchState === "pinned"
                               ? qsTr("クリックまたは Esc で閉じます")

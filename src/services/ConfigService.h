@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QColor>
+#include <QLocale>
 
 /**
  * ActiveNotch 設定サービス (KConfig ベース)。
@@ -9,6 +10,11 @@
  * 設定ファイル: ~/.config/activenotch/activenotchrc
  * スキーマは PLAN.md §11 準拠。
  * すべてのプロパティは Q_PROPERTY + NOTIFY で QML に公開する。
+ *
+ * 変更時の即時反映:
+ *   - ジオメトリ/テーマ/動作: NotchWindow および各サービスへ自動適用
+ *   - 言語: QTranslator 再インストール
+ *   - インターバル: 各サービスのタイマー更新
  */
 class ConfigService : public QObject
 {
@@ -103,6 +109,18 @@ public:
     Q_INVOKABLE void load();
     Q_INVOKABLE void resetToDefaults();
 
+    // スキーマバージョン (将来のマイグレーション用)
+    static constexpr int CurrentSchemaVersion = 1;
+    int schemaVersion() const;
+
+    // 値の検証・クランプ (静的純関数: 単体テスト可能)
+    static int clampGeometry(int value, int min, int max, int defaultValue);
+    static qreal clampOpacity(qreal value);
+    static QString clampAnchor(const QString &value);
+    static QString clampLanguage(const QString &value);
+    static QString clampWeatherUnit(const QString &value);
+    static int clampInterval(int value, int min, int defaultValue);
+
 signals:
     void languageChanged();
     void anchorChanged();
@@ -126,6 +144,9 @@ signals:
     void statsIntervalChanged();
     void batteryIntervalChanged();
     void weatherIntervalChanged();
+
+    // 設定変更の一括通知 (QML 側で全プロパティ再読み込みしたい場合など)
+    void configChanged();
 
 private:
     class Private;

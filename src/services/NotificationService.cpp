@@ -104,7 +104,11 @@ void NotificationService::tryRegisterDaemon()
     }
 
     if (iface->isServiceRegistered(kNotificationsService)) {
-        qWarning() << "NotificationService: org.freedesktop.Notifications は既に登録されています (ミラーモード)";
+        // KDE では Plasma の通知デーモンが常に所有するため、これは正常な分岐。
+        // 標準プロトコルに他デーモンの通知を購読する API は無いのでミラーはせず、
+        // ownsDaemon=false (履歴 OFF) で動作する。
+        qInfo() << "NotificationService: org.freedesktop.Notifications は既存デーモンが所有"
+                   " (ownsDaemon=false / 履歴 OFF)";
         m_ownsDaemon = false;
         emit ownsDaemonChanged();
 

@@ -29,7 +29,7 @@ Item {
                 height: 20
                 anchors.verticalCenter: parent.verticalCenter
                 fillMode: Image.PreserveAspectFit
-                color: Theme.accentSoft
+                // Image に color プロパティは存在しない (SVG の淡色 fill を使う)。
             }
 
             Column {

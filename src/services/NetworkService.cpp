@@ -5,6 +5,8 @@
 #include <QDBusMessage>
 #include <QDBusReply>
 #include <QDBusObjectPath>
+#include <QDBusVariant>
+#include <QDBusArgument>
 #include <QDebug>
 #include <QTimer>
 
@@ -187,20 +189,26 @@ public:
             QDBusInterface acIface(kNmService, acPath.path(), kNmActiveConnectionInterface, m_bus);
             if (!acIface.isValid()) continue;
 
-            QString ssid = NetworkService::extractSsidFromActiveConnection(acIface.property("SpecificObject").toMap());
-            if (!ssid.isEmpty()) {
-                newSsid = ssid;
-                // 強度はアクセスポイントから取得を試みる
-                QVariant specificObj = acIface.property("SpecificObject");
-                if (specificObj.isValid() && specificObj.canConvert<QDBusObjectPath>()) {
-                    QDBusObjectPath apPath = specificObj.value<QDBusObjectPath>();
-                    QDBusInterface apIface(kNmService, apPath.path(), kNmAccessPointInterface, m_bus);
-                    if (apIface.isValid()) {
-                        newStrength = apIface.property("Strength").toInt();
-                    }
-                }
-                break; // 最初の Wi-Fi 接続を使用
+            // SpecificObject は 'o' (QDBusObjectPath)。toMap() では空になる。
+            const QVariant specificObj = acIface.property("SpecificObject");
+            QDBusObjectPath apPath;
+            if (specificObj.userType() == qMetaTypeId<QDBusObjectPath>()) {
+                apPath = qvariant_cast<QDBusObjectPath>(specificObj);
+            } else if (specificObj.canConvert<QDBusObjectPath>()) {
+                apPath = specificObj.value<QDBusObjectPath>();
             }
+            if (apPath.path().isEmpty()) continue;
+
+            QDBusInterface apIface(kNmService, apPath.path(), kNmAccessPointInterface, m_bus);
+            if (!apIface.isValid()) continue;
+
+            // SSID は 'ay' (バイト配列)。UTF-8 として復号する。
+            const QString ssid = QString::fromUtf8(apIface.property("Ssid").toByteArray());
+            if (ssid.isEmpty()) continue;
+
+            newSsid = ssid;
+            newStrength = apIface.property("Strength").toInt();
+            break; // 最初の Wi-Fi 接続を使用
         }
 
         if (q_ptr->m_activeSsid != newSsid) {
@@ -253,7 +261,12 @@ void NetworkService::setWifiEnabled(bool enabled)
     if (!m_available || !d->m_nmIface || !d->m_nmIface->isValid()) return;
     if (m_wifiEnabled == enabled) return;
 
-    QDBusReply<void> reply = d->m_nmIface->call("Set", kNmInterface, "WirelessEnabled", QVariant::fromValue(enabled));
+    // WirelessEnabled は org.freedesktop.DBus.Properties.Set で設定する。
+    // NetworkManager 自身の Set メソッドではない。
+    QDBusInterface propsIface(kNmService, kNmPath, kPropertiesInterface, d->m_bus);
+    QDBusReply<void> reply = propsIface.call(
+        "Set", kNmInterface, QStringLiteral("WirelessEnabled"),
+        QVariant::fromValue(QDBusVariant(enabled)));
     if (!reply.isValid()) {
         qWarning() << "NetworkService: Failed to set WirelessEnabled:" << reply.error().message();
     }
@@ -278,16 +291,31 @@ void NetworkService::connectSsid(const QString &ssid)
                                   "org.freedesktop.NetworkManager.Settings.Connection", d->m_bus);
         if (!connIface.isValid()) continue;
 
-        QDBusReply<QVariantMap> settingsReply = connIface.call("GetSettings");
+        // GetSettings は a{sa{sv}} を返す。QDBusReply<QVariantMap> では
+        // シグネチャが一致しないため QDBusArgument で受けて手動で読む。
+        QDBusReply<QDBusArgument> settingsReply = connIface.call("GetSettings");
         if (!settingsReply.isValid()) continue;
-        QVariantMap settings = settingsReply.value();
-        if (settings.contains("802-11-wireless")) {
-            QVariantMap wifiSettings = settings["802-11-wireless"].toMap();
-            QByteArray connSsid = wifiSettings.value("ssid").toByteArray();
-            if (QString::fromUtf8(connSsid) == ssid) {
-                connectionPath = path.path();
-                break;
+
+        QByteArray connSsid;
+        QDBusArgument settingsArg = settingsReply.value();
+        // 読み取りモードを使うため const 参照経由で操作する。
+        const QDBusArgument &settingsArgRead = settingsArg;
+        settingsArgRead.beginMap();
+        while (!settingsArgRead.atEnd()) {
+            settingsArgRead.beginMapEntry();
+            QString key;
+            QVariantMap section;
+            settingsArgRead >> key >> section;
+            settingsArgRead.endMapEntry();
+            if (key == QStringLiteral("802-11-wireless")) {
+                connSsid = section.value(QStringLiteral("ssid")).toByteArray();
             }
+        }
+        settingsArgRead.endMap();
+
+        if (!connSsid.isEmpty() && QString::fromUtf8(connSsid) == ssid) {
+            connectionPath = path.path();
+            break;
         }
     }
 

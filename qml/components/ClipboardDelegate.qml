@@ -13,6 +13,9 @@ Item {
     readonly property real rowHeight: 68
     height: rowHeight
 
+    // modelData 未設定時も安全に参照するためのローカルエイリアス。
+    readonly property var entry: modelData || ({})
+
     // 時刻フォーマット
     function formatTime(ts) {
         const date = (typeof ts === "number") ? new Date(ts * 1000) : new Date(ts)
@@ -50,13 +53,13 @@ Item {
 
             // コンテンツ部分
             Column {
-                width: parent.width - 120  // アクションボタン分を確保
+                width: Math.max(0, parent.width - 120)  // アクションボタン分を確保
                 spacing: 4
 
                 // プレビュー (最初の 1 行)
                 Text {
                     width: parent.width
-                    text: previewText(modelData.text)
+                    text: previewText(entry.text)
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontPixelSize
                     color: Theme.textColor
@@ -68,14 +71,14 @@ Item {
                     spacing: 12
 
                     Text {
-                        text: formatTime(modelData.ts)
+                        text: formatTime(entry.ts)
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontPixelSizeCaption
                         color: Theme.textMuted
                     }
 
                     Text {
-                        text: qsTr("%1 文字").arg(charCount(modelData.text))
+                        text: qsTr("%1 文字").arg(charCount(entry.text))
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontPixelSizeCaption
                         color: Theme.textMuted
@@ -89,34 +92,34 @@ Item {
 
                 // 貼付 (ペースト)
                 IconButton {
-                    iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 16H5V4h14v14zM14 10V6.5l-4 4 4 4V13h5c.55 0 1 .45 1 1s-.45 1-1 1H9c-.55 0-1-.45-1-1s.45-1 1-1h5z'/>"
+                    iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M19 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 16H5V4h14v14zM14 10V6.5l-4 4 4 4V13h5c.55 0 1 .45 1 1s-.45 1-1 1H9c-.55 0-1-.45-1-1s.45-1 1-1h5z'/></svg>"
                     iconSize: 18
                     buttonSize: 32
                     tooltipText: qsTr("貼り付け (ペースト)")
                     onClicked: {
-                        delegateRoot.pasteClicked(modelData.id)
+                        delegateRoot.pasteClicked(entry.id)
                     }
                 }
 
                 // 再コピー (クリップボードに再設定)
                 IconButton {
-                    iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/>"
+                    iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/></svg>"
                     iconSize: 18
                     buttonSize: 32
                     tooltipText: qsTr("再コピー (クリップボードに設定)")
                     onClicked: {
-                        delegateRoot.copyClicked(modelData.id)
+                        delegateRoot.copyClicked(entry.id)
                     }
                 }
 
                 // 削除
                 IconButton {
-                    iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'/>"
+                    iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'/></svg>"
                     iconSize: 18
                     buttonSize: 32
                     tooltipText: qsTr("履歴から削除")
                     onClicked: {
-                        delegateRoot.removeClicked(modelData.id)
+                        delegateRoot.removeClicked(entry.id)
                     }
                 }
             }

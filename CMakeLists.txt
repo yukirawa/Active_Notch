@@ -19,34 +19,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # LayerShellQt の CMakeConfig は Qt6Gui にのみ find_dependency するため、
 # extra-cmake-modules (ECM) は不要 (実機 layer-shell-qt 6.8.2-1 で確認済み)。
 #
-# Phase 1 追加分:
-#   - DBus                 : FullscreenDetector (KWin スクリプト通知)
-#   - GuiPrivate           : QNativeInterface::Private::QWaylandWindow
-#   - WaylandClientPrivate : QWaylandWindow / QWaylandDisplay (BlurHelper)
-#   - Test                 : tests/tst_regionutils
-#
-# Phase 2 追加分 (サービス実装):
-#   - KF6Config            : ConfigService (KConfig)
-#   - KF6CalendarCore      : CalendarService (KHolidays)
-#   - KF6Holidays          : CalendarService (HolidayRegion)
-#
-# Phase 3 追加分 (サービス実装):
-#   - DBus                 : MediaService (MPRIS)
-#   - (procfs/sysfs)       : StatsService (/proc, hwmon, intel_gpu_top)
-#
-# Phase 4 追加分 (サービス実装):
-#   - Network              : WeatherService (HTTP)
-#   - KF6BluezQt           : BluetoothService
-#
-# Phase 6 追加分 (サービス実装):
-#   - KF6Service           : LauncherService (KService, KServiceTypeTrader)
-#   - KF6Package           : LauncherService (KDesktopFile)
-#
-# プライベートモジュールを使うと Qt バージョン固定の警告が出るが、
-# このプロジェクトは実機の Qt 6.12 に固定して使うため抑制する。
+# Phase 7 追加分 (i18n):
+#   - KF6I18n            : 翻訳ランタイム (KLocalizedString 等)
+
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
 find_package(Qt6 REQUIRED COMPONENTS
-    Quick Qml DBus Test GuiPrivate WaylandClientPrivate Network)
+    Quick Qml DBus Test GuiPrivate WaylandClientPrivate Network LinguistTools Svg)
 
 # 注意: リンクターゲットは LayerShellQt::Interface。
 # (LayerShellQt::LayerShellQt というターゲットは存在しない)
@@ -61,6 +39,7 @@ find_package(KF6CalendarCore REQUIRED)
 find_package(KF6Holidays REQUIRED)
 find_package(KF6BluezQt REQUIRED)
 find_package(KF6Service REQUIRED)
+find_package(KF6I18n REQUIRED)
 # KF6Package は ECM (extra-cmake-modules) を必要とし、環境によって未導入の可能性があるため
 # .desktop パースは手動実装 (parseDesktopFileManual) で代替し、KF6Package はオプションとする
 # find_package(KF6Package REQUIRED)
@@ -111,6 +90,7 @@ qt_add_executable(activenotch
     src/RegionUtils.cpp
     src/BlurHelper.cpp
     src/FullscreenDetector.cpp
+    src/SvgIconProvider.cpp
     src/services/ConfigService.cpp
     src/services/BatteryService.cpp
     src/services/AudioService.cpp
@@ -136,10 +116,25 @@ qt_add_qml_module(activenotch
         ${ACTIVE_NOTCH_QML_FILES}
 )
 
+# ---- i18n: 翻訳ファイル生成 (Phase 7) --------------------------------------
+# ソース内の qsTr() を抽出して .ts を更新し、ビルド時に .qm を生成・リソースに埋め込む
+# 翻訳ファイルは i18n/ 配下に配置 (ja_JP.ts, en_US.ts)
+# 注意: オプションは LUPDATE_OPTIONS / LRELEASE_OPTIONS で渡す。
+# 以前 `OPTIONS -no-obsolete` と書いたため lupdate が引数を TS ファイル名として
+# 解釈し、リポジトリ直下に空の TS ファイル (-no-obsolete / OPTIONS /
+# QM_FILES_INSTALL_DIR) が生成されていた。
+qt_add_translations(activenotch
+    TS_FILES
+        i18n/ja_JP.ts
+        i18n/en_US.ts
+    LUPDATE_OPTIONS -no-obsolete
+)
+
 target_include_directories(activenotch PRIVATE src)
 
 target_link_libraries(activenotch PRIVATE
     Qt6::Quick
+    Qt6::Svg
     Qt6::DBus
     Qt6::Network
     Qt6::GuiPrivate
@@ -151,6 +146,7 @@ target_link_libraries(activenotch PRIVATE
     KF6::Holidays
     KF6::BluezQt
     KF6::Service
+    KF6::I18n
 )
 
 # ---------------------------------------------------------------------------

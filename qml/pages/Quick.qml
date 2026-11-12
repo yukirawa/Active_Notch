@@ -10,15 +10,17 @@ import dev.yukirawa.activenotch
 // ことを想定し、拡張しやすい ListView + Delegate 構造にしている。
 Item {
     id: root
-    width: parent ? parent.width : 604
-    height: parent ? parent.height : 380
+    // ルートは PageLoader が anchors.fill でサイズを与える。
+    // parent.width/height への依存は循環バインドの原因になるため implicit のみ持つ。
+    implicitWidth: 604
+    implicitHeight: 380
 
     // ---- 内部状態: トグル項目定義 (サービスプロパティ名で紐付け) ------------
     // 将来追加項目はここにオブジェクトを追加するだけで自動的に行が生成される
     readonly property var toggleItems: [
         {
             id: "nightLight",
-            icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000 1.41.996.996 0 001.41 0l1.06-1.06c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06z'/>",
+            icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000 1.41.996.996 0 001.41 0l1.06-1.06c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06z'/></svg>",
             label: qsTr("夜間モード"),
             description: qsTr("画面の色温度を暖色系に調整します"),
             serviceAvailable: "nightLightAvailable",
@@ -57,14 +59,16 @@ Item {
 
     // ---- ヘルパー: サービスプロパティの安全な取得 -----------------------------
     function getServiceProp(propName, defaultValue) {
-        if (typeof QuickSettingsService !== "undefined" && QuickSettingsService[propName] !== undefined) {
+        if (typeof QuickSettingsService !== "undefined" && QuickSettingsService !== null
+                && QuickSettingsService[propName] !== undefined) {
             return QuickSettingsService[propName]
         }
         return defaultValue
     }
 
     function callServiceMethod(methodName) {
-        if (typeof QuickSettingsService !== "undefined" && QuickSettingsService[methodName]) {
+        if (typeof QuickSettingsService !== "undefined" && QuickSettingsService !== null
+                && QuickSettingsService[methodName]) {
             QuickSettingsService[methodName]()
         }
     }
@@ -102,7 +106,8 @@ Item {
         // トグル行リスト
         ListView {
             width: parent.width
-            height: parent.height - 44  // ヘッダー分を除く
+            // フォールバック通知が表示されるときはその分 (60 + spacing 8) を差し引く。
+            height: parent.height - 44 - (unavailableNotice.visible ? 68 : 0)
             clip: true
             model: root.toggleItems
             spacing: 4
@@ -144,10 +149,11 @@ Item {
                     spacing: 12
 
                     Image {
-                        source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/>"
+                        // Image に color プロパティは存在しない (Qt 6)。
+                        // SVG 側の fill 色をそのまま使う。
+                        source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/></svg>"
                         width: 24
                         height: 24
-                        color: Theme.accentSoft
                     }
 
                     Column {

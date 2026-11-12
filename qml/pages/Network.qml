@@ -19,22 +19,22 @@ Item {
     // =========================================================================
     // NetworkService プロパティ (typeof ガード付き)
     // =========================================================================
-    readonly property bool available: (typeof NetworkService !== "undefined" && NetworkService.available !== undefined)
+    readonly property bool available: (typeof NetworkService !== "undefined" && NetworkService !== null && NetworkService.available !== undefined)
         ? NetworkService.available
         : false
-    readonly property bool wifiEnabled: (typeof NetworkService !== "undefined" && NetworkService.wifiEnabled !== undefined)
+    readonly property bool wifiEnabled: (typeof NetworkService !== "undefined" && NetworkService !== null && NetworkService.wifiEnabled !== undefined)
         ? NetworkService.wifiEnabled
         : false
-    readonly property string state: (typeof NetworkService !== "undefined" && NetworkService.state !== undefined)
+    readonly property string state: (typeof NetworkService !== "undefined" && NetworkService !== null && NetworkService.state !== undefined)
         ? NetworkService.state
         : qsTr("不明")
-    readonly property string activeSsid: (typeof NetworkService !== "undefined" && NetworkService.activeSsid !== undefined)
+    readonly property string activeSsid: (typeof NetworkService !== "undefined" && NetworkService !== null && NetworkService.activeSsid !== undefined)
         ? NetworkService.activeSsid
         : ""
-    readonly property int signalStrength: (typeof NetworkService !== "undefined" && NetworkService.signalStrength !== undefined)
+    readonly property int signalStrength: (typeof NetworkService !== "undefined" && NetworkService !== null && NetworkService.signalStrength !== undefined)
         ? NetworkService.signalStrength
         : 0
-    readonly property var networkList: (typeof NetworkService !== "undefined" && NetworkService.list !== undefined)
+    readonly property var networkList: (typeof NetworkService !== "undefined" && NetworkService !== null && NetworkService.list !== undefined)
         ? NetworkService.list
         : []
 
@@ -76,32 +76,32 @@ Item {
     // セキュリティタイプからアイコン
     function securityIcon(secured) {
         return secured
-            ? "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16'><path fill='%237FB8B0' d='M18 8h-1V7c0-2.76-2.24-5-5-5S7 4.24 7 7v1H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V7c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v1z'/>"
-            : "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16'><path fill='%237FB8B0' d='M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V7c0-2.76-2.24-5-5-5S7 4.24 7 7v1H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z'/>"
+            ? "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16'><path fill='%237FB8B0' d='M18 8h-1V7c0-2.76-2.24-5-5-5S7 4.24 7 7v1H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V7c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v1z'/></svg>"
+            : "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16'><path fill='%237FB8B0' d='M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V7c0-2.76-2.24-5-5-5S7 4.24 7 7v1H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z'/></svg>"
     }
 
     // 接続操作
     function onConnectSsid(ssid) {
-        if (typeof NetworkService !== "undefined" && NetworkService.connectSsid) {
+        if (typeof NetworkService !== "undefined" && NetworkService !== null && NetworkService.connectSsid) {
             NetworkService.connectSsid(ssid)
         }
     }
 
     function onDisconnect() {
-        if (typeof NetworkService !== "undefined" && NetworkService.disconnect) {
+        if (typeof NetworkService !== "undefined" && NetworkService !== null && NetworkService.disconnect) {
             NetworkService.disconnect()
         }
     }
 
     function onToggleWifi() {
-        if (typeof NetworkService !== "undefined" && NetworkService.setWifiEnabled) {
+        if (typeof NetworkService !== "undefined" && NetworkService !== null && NetworkService.setWifiEnabled) {
             NetworkService.setWifiEnabled(!root.wifiEnabled)
         }
     }
 
     function onRefresh() {
         // NetworkService に refresh があれば呼ぶ (将来実装)
-        if (typeof NetworkService !== "undefined" && NetworkService.refresh) {
+        if (typeof NetworkService !== "undefined" && NetworkService !== null && NetworkService.refresh) {
             NetworkService.refresh()
         }
     }
@@ -121,7 +121,7 @@ Item {
             spacing: 12
 
             Image {
-                source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'><path fill='%237FB8B0' d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z'/>"
+                source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'><path fill='%237FB8B0' d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z'/></svg>"
                 width: 24
                 height: 24
                 anchors.verticalCenter: parent.verticalCenter
@@ -164,7 +164,7 @@ Item {
 
                     // 更新ボタン
                     IconButton {
-                        iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M17.65 6.35A7.958 7.958 0 0012 4C7.42 4 3.73 7.02 2.47 10.93l2.14 2.14A5.942 5.942 0 0112 6c2.48 0 4.56 1.48 5.51 3.49l1.64-1.64zm-11.3 11.3A7.958 7.958 0 0012 20c4.58 0 8.27-3.02 9.53-6.93l-2.14-2.14A5.942 5.942 0 0112 18c-2.48 0-4.56-1.48-5.51-3.49L2.35 17.65zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z'/>"
+                        iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M17.65 6.35A7.958 7.958 0 0012 4C7.42 4 3.73 7.02 2.47 10.93l2.14 2.14A5.942 5.942 0 0112 6c2.48 0 4.56 1.48 5.51 3.49l1.64-1.64zm-11.3 11.3A7.958 7.958 0 0012 20c4.58 0 8.27-3.02 9.53-6.93l-2.14-2.14A5.942 5.942 0 0112 18c-2.48 0-4.56-1.48-5.51-3.49L2.35 17.65zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z'/></svg>"
                         iconSize: 20
                         buttonSize: 36
                         tooltipText: qsTr("ネットワーク一覧を更新")
@@ -250,7 +250,7 @@ Item {
                                 spacing: 12
 
                                 Image {
-                                    source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'><path fill='%237FB8B0' d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z'/>"
+                                    source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'><path fill='%237FB8B0' d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z'/></svg>"
                                     width: 24
                                     height: 24
                                     fillMode: Image.PreserveAspectFit
@@ -331,7 +331,7 @@ Item {
                                 spacing: 8
 
                                 IconButton {
-                                    iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M14.59 8L12 10.59 9.41 8 8 9.41 10.59 12 8 14.59 9.41 16 12 13.41 14.59 16 16 14.59 13.41 12 16 9.41 14.59 8zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z'/>"
+                                    iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M14.59 8L12 10.59 9.41 8 8 9.41 10.59 12 8 14.59 9.41 16 12 13.41 14.59 16 16 14.59 13.41 12 16 9.41 14.59 8zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z'/></svg>"
                                     iconSize: 18
                                     buttonSize: 36
                                     tooltipText: qsTr("切断")
@@ -365,7 +365,7 @@ Item {
                                 spacing: 12
 
                                 Image {
-                                    source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'><path fill='%237FB8B0' d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z'/>"
+                                    source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'><path fill='%237FB8B0' d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z'/></svg>"
                                     width: 24
                                     height: 24
                                     fillMode: Image.PreserveAspectFit
@@ -398,7 +398,7 @@ Item {
                                 spacing: 12
 
                                 Image {
-                                    source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'><path fill='%237FB8B0' d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0 14c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z'/>"
+                                    source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'><path fill='%237FB8B0' d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0 14c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z'/></svg>"
                                     width: 24
                                     height: 24
                                     fillMode: Image.PreserveAspectFit
@@ -506,7 +506,7 @@ Item {
 
                     Image {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48'><path fill='%237FB8B0' d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z'/>"
+                        source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48'><path fill='%237FB8B0' d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z'/></svg>"
                         color: Theme.accentSoft
                     }
 

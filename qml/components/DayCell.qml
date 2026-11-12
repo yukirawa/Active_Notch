@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Controls
 import dev.yukirawa.activenotch
 
 // DayCell — カレンダーの 1 日分セル (Calendar ページで使用)。
@@ -11,10 +12,15 @@ Item {
     required property int index
     required property int row
 
+    // ツールチップ表示用 (祝日名はホバー時のみ)
+    property bool hovered: false
+
     // クリック可能領域
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
+        onEntered: root.hovered = true
+        onExited: root.hovered = false
         onClicked: {
             // 将来: 日付クリックで詳細表示など
         }
@@ -64,8 +70,9 @@ Item {
 
     // ツールチップ (祝日名表示)
     ToolTip {
-        text: root.dayData.holidayName
-        visible: root.dayData.isHoliday && root.dayData.holidayName.length > 0
+        text: root.dayData.holidayName || ""
+        visible: root.hovered && root.dayData.isHoliday
+            && (root.dayData.holidayName || "").length > 0
         delay: 300
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontPixelSizeCaption

@@ -13,66 +13,67 @@ import dev.yukirawa.activenotch
 // - available=false 時「再生中なし」表示
 Item {
     id: root
-    width: parent ? parent.width : 604
-    height: parent ? parent.height : 380
+    // PageLoader が anchors.fill でサイズを与える。parent 依存は循環の原因。
+    implicitWidth: 604
+    implicitHeight: 380
 
     // =========================================================================
     // MediaService プロパティ・メソッド (typeof ガード付き)
     // =========================================================================
-    readonly property bool available: (typeof MediaService !== "undefined" && MediaService.available !== undefined)
+    readonly property bool available: (typeof MediaService !== "undefined" && MediaService !== null && MediaService.available !== undefined)
         ? MediaService.available
         : false
-    readonly property string title: (typeof MediaService !== "undefined" && MediaService.title !== undefined)
+    readonly property string title: (typeof MediaService !== "undefined" && MediaService !== null && MediaService.title !== undefined)
         ? MediaService.title
         : ""
-    readonly property string artist: (typeof MediaService !== "undefined" && MediaService.artist !== undefined)
+    readonly property string artist: (typeof MediaService !== "undefined" && MediaService !== null && MediaService.artist !== undefined)
         ? MediaService.artist
         : ""
-    readonly property string album: (typeof MediaService !== "undefined" && MediaService.album !== undefined)
+    readonly property string album: (typeof MediaService !== "undefined" && MediaService !== null && MediaService.album !== undefined)
         ? MediaService.album
         : ""
-    readonly property url artUrl: (typeof MediaService !== "undefined" && MediaService.artUrl !== undefined)
+    readonly property url artUrl: (typeof MediaService !== "undefined" && MediaService !== null && MediaService.artUrl !== undefined)
         ? MediaService.artUrl
         : ""
-    readonly property bool playing: (typeof MediaService !== "undefined" && MediaService.playing !== undefined)
+    readonly property bool playing: (typeof MediaService !== "undefined" && MediaService !== null && MediaService.playing !== undefined)
         ? MediaService.playing
         : false
-    readonly property int positionMs: (typeof MediaService !== "undefined" && MediaService.positionMs !== undefined)
+    readonly property int positionMs: (typeof MediaService !== "undefined" && MediaService !== null && MediaService.positionMs !== undefined)
         ? MediaService.positionMs
         : 0
-    readonly property int lengthMs: (typeof MediaService !== "undefined" && MediaService.lengthMs !== undefined)
+    readonly property int lengthMs: (typeof MediaService !== "undefined" && MediaService !== null && MediaService.lengthMs !== undefined)
         ? MediaService.lengthMs
         : 0
-    readonly property bool canControl: (typeof MediaService !== "undefined" && MediaService.canControl !== undefined)
+    readonly property bool canControl: (typeof MediaService !== "undefined" && MediaService !== null && MediaService.canControl !== undefined)
         ? MediaService.canControl
         : false
-    readonly property string playerName: (typeof MediaService !== "undefined" && MediaService.playerName !== undefined)
+    readonly property string playerName: (typeof MediaService !== "undefined" && MediaService !== null && MediaService.playerName !== undefined)
         ? MediaService.playerName
         : qsTr("不明")
 
     // MediaService メソッド呼び出しヘルパー
     function mediaPlayPause() {
-        if (typeof MediaService !== "undefined" && MediaService.playPause) {
+        if (typeof MediaService !== "undefined" && MediaService !== null && MediaService.playPause) {
             MediaService.playPause()
         }
     }
     function mediaNext() {
-        if (typeof MediaService !== "undefined" && MediaService.next) {
+        if (typeof MediaService !== "undefined" && MediaService !== null && MediaService.next) {
             MediaService.next()
         }
     }
     function mediaPrevious() {
-        if (typeof MediaService !== "undefined" && MediaService.previous) {
+        if (typeof MediaService !== "undefined" && MediaService !== null && MediaService.previous) {
             MediaService.previous()
         }
     }
     function mediaSeek(ms) {
-        if (typeof MediaService !== "undefined" && MediaService.seekMs) {
+        if (typeof MediaService !== "undefined" && MediaService !== null && MediaService.seekMs) {
             MediaService.seekMs(ms)
         }
     }
     function mediaSetVolume(v) {
-        if (typeof MediaService !== "undefined" && MediaService.setVolumePct) {
+        if (typeof MediaService !== "undefined" && MediaService !== null && MediaService.setVolumePct) {
             MediaService.setVolumePct(Math.max(0, Math.min(100, Math.round(v))))
         }
     }
@@ -119,12 +120,11 @@ Item {
 
             Image {
                 id: playerIcon
-                source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'><path fill='%237FB8B0' d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/>"
+                source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'><path fill='%237FB8B0' d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/></svg>"
                 width: 24
                 height: 24
                 anchors.verticalCenter: parent.verticalCenter
                 fillMode: Image.PreserveAspectFit
-                color: root.available ? Theme.accentSoft : Theme.textMuted
                 opacity: root.available ? 1 : 0.5
             }
 
@@ -153,7 +153,9 @@ Item {
         // --- メインコンテンツ -------------------------------------------------
         Item {
             width: parent.width
-            Layout.fillHeight: true
+            // Column 直下では Layout.fillHeight は無効。
+            // ヘッダー (36) + spacing (16) を差し引いた高さを明示する。
+            height: Math.max(0, parent.height - 52)
 
             // 利用可能時: メディア情報 + コントロール
             Item {
@@ -189,7 +191,6 @@ Item {
                                     anchors.fill: parent
                                     source: root.artUrl
                                     fillMode: Image.PreserveAspectCrop
-                                    radius: 8
                                     clip: true
                                     // 読み込み中/失敗時のプレースホルダ
                                     Rectangle {
@@ -199,8 +200,7 @@ Item {
                                         visible: !artworkImg.source || artworkImg.status === Image.Error
                                         Image {
                                             anchors.centerIn: parent
-                                            source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48'><path fill='%237FB8B0' d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/>"
-                                            color: Theme.accentSoft
+                                            source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48'><path fill='%237FB8B0' d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/></svg>"
                                             width: 48
                                             height: 48
                                         }
@@ -274,6 +274,8 @@ Item {
                     // 再生コントロール
                     GlassCard {
                         width: parent.width
+                        // 宣言的 GlassCard は呼び出し側で高さ指定が必要。
+                        height: 190
                         padding: 20
                         radius: Theme.cardRadius
 
@@ -343,10 +345,10 @@ Item {
 
                                         IconButton {
                                             iconSource: root.animatedVolume === 0
-                                                ? "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3z'/>"
+                                                ? "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3z'/></svg>"
                                                 : (root.animatedVolume < 50
-                                                    ? "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z'/>"
-                                                    : "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z'/>")
+                                                    ? "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z'/></svg>"
+                                                    : "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z'/></svg>")
                                             iconSize: 20
                                             buttonSize: 36
                                             tooltipText: qsTr("ミュート")
@@ -356,7 +358,8 @@ Item {
 
                                         SliderControl {
                                             id: volumeSlider
-                                            Layout.fillWidth: true
+                                            // Row 内では Layout.fillWidth は無効。ミュートボタン分を除く。
+                                            width: Math.max(0, parent.width - 44)
                                             value: root.animatedVolume
                                             minValue: 0
                                             maxValue: 100
@@ -374,7 +377,8 @@ Item {
 
                                 // 再生制御ボタン群 (中央寄せ)
                                 Item {
-                                    Layout.fillWidth: true
+                                    // Row 内では Layout.fillWidth は無効。音量コンテナ (100) + spacing (16) を除く。
+                                    width: Math.max(0, parent.width - 116)
                                     height: 48
                                     anchors.verticalCenter: parent.verticalCenter
 
@@ -384,7 +388,7 @@ Item {
 
                                         // 前の曲
                                         IconButton {
-                                            iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='28' height='28'><path fill='%23E8F4F2' d='M6 6h2v12H6zm3.5 6l8.5 6V6z'/>"
+                                            iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='28' height='28'><path fill='%23E8F4F2' d='M6 6h2v12H6zm3.5 6l8.5 6V6z'/></svg>"
                                             iconSize: 28
                                             buttonSize: 48
                                             tooltipText: qsTr("前の曲")
@@ -396,8 +400,8 @@ Item {
                                         IconButton {
                                             id: playPauseBtn
                                             iconSource: root.playing
-                                                ? "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='32' height='32'><path fill='%237FB8B0' d='M6 19h4V5H6v14zm8-14v14h4V5h-4z'/>"
-                                                : "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='32' height='32'><path fill='%237FB8B0' d='M8 5v14l11-7z'/>"
+                                                ? "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='32' height='32'><path fill='%237FB8B0' d='M6 19h4V5H6v14zm8-14v14h4V5h-4z'/></svg>"
+                                                : "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='32' height='32'><path fill='%237FB8B0' d='M8 5v14l11-7z'/></svg>"
                                             iconSize: 32
                                             buttonSize: 56
                                             tooltipText: root.playing ? qsTr("一時停止") : qsTr("再生")
@@ -407,7 +411,7 @@ Item {
 
                                         // 次の曲
                                         IconButton {
-                                            iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='28' height='28'><path fill='%23E8F4F2' d='M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z'/>"
+                                            iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='28' height='28'><path fill='%23E8F4F2' d='M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z'/></svg>"
                                             iconSize: 28
                                             buttonSize: 48
                                             tooltipText: qsTr("次の曲")
@@ -439,8 +443,9 @@ Item {
 
                         Image {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48'><path fill='%237FB8B0' d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/>"
-                            color: Theme.accentSoft
+                            source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48'><path fill='%237FB8B0' d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/></svg>"
+                            width: 48
+                            height: 48
                         }
 
                         Text {

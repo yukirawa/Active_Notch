@@ -81,19 +81,25 @@ private:
     };
 
     void registerWatcher();
-    void onWatcherRegistered(const QString &service, const QString &objectPath);
-    void onItemRegistered(const QString &service, const QDBusObjectPath &objectPath);
-    void onItemUnregistered(const QString &service, const QDBusObjectPath &objectPath);
     void fetchItemProperties(const QString &service, const QString &objectPath);
     void fetchMenu(const QString &service, const QString &objectPath, const QString &menuPath);
-    void onMenuLayoutUpdated();
-    void onMenuPropertiesUpdated();
+    void refreshMenu(TrayItem &item);
     void cleanupItem(const QString &id);
     void updateItemsProperty();
     QString generateId(const QString &service, const QString &objectPath) const;
     TrayItem* findItem(const QString &id);
     const TrayItem* findItem(const QString &id) const;
 
+private slots:
+    // Watcher のシグナル引数は 1 個の QString で、
+    // "サービス名 + オブジェクトパス" (例: ":1.95/StatusNotifierItem")。
+    void onItemRegistered(const QString &serviceAndPath);
+    void onItemUnregistered(const QString &serviceAndPath);
+    // DBusMenu のシグナル。引数は使わない (sender() でアイテムを特定)。
+    void onMenuLayoutUpdated();
+    void onMenuPropertiesUpdated();
+
+private:
     bool m_available = false;
     QVariantList m_items;
     QHash<QString, TrayItem> m_itemMap;

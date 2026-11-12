@@ -11,8 +11,11 @@ Item {
     readonly property real rowHeight: 72
     height: rowHeight
 
+    // modelData 未設定時も安全に参照するためのローカルエイリアス。
+    readonly property var entry: modelData || ({})
+
     // 緊急度色 (urgent: true -> アクセント色の左ボーダー)
-    readonly property bool isUrgent: modelData.urgent === true
+    readonly property bool isUrgent: entry.urgent === true
 
     // 時刻フォーマットヘルパー
     function formatTime(ts) {
@@ -54,7 +57,7 @@ Item {
 
             // アプリ名 + 時刻 + 緊急度バッジ
             Column {
-                width: parent.width - 56  // 削除ボタン分を確保
+                width: Math.max(0, parent.width - 56)  // 削除ボタン分を確保
                 spacing: 4
 
                 Row {
@@ -62,7 +65,7 @@ Item {
 
                     // アプリ名
                     Text {
-                        text: modelData.app || qsTr("不明なアプリ")
+                        text: entry.app || qsTr("不明なアプリ")
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontPixelSize
                         font.weight: Font.DemiBold
@@ -72,7 +75,7 @@ Item {
 
                     // 時刻
                     Text {
-                        text: formatTime(modelData.ts)
+                        text: formatTime(entry.ts)
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontPixelSizeCaption
                         color: Theme.textMuted
@@ -80,10 +83,13 @@ Item {
 
                     // 緊急度バッジ
                     Rectangle {
+                        id: urgentPill
                         visible: isUrgent
-                        height: 16
-                        radius: 8
-                        padding: 0
+                        // 子テキストの実幅 + 左右パディングで幅を決める
+                        // (Rectangle は子から自動サイズされないため明示する)。
+                        width: urgentLabel.implicitWidth + horizontalPadding * 2
+                        height: Math.max(16, urgentLabel.implicitHeight + 4)
+                        radius: height / 2
                         property real horizontalPadding: 6
 
                         color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18)
@@ -91,13 +97,13 @@ Item {
                         border.color: Theme.accent
 
                         Text {
+                            id: urgentLabel
                             anchors.centerIn: parent
                             text: urgentBadge(true)
                             font.family: Theme.fontFamily
                             font.pixelSize: 10
                             font.weight: Font.Medium
                             color: Theme.accent
-                            padding: horizontalPadding
                         }
                     }
                 }
@@ -105,37 +111,37 @@ Item {
                 // サマリー (太字)
                 Text {
                     width: parent.width
-                    text: modelData.summary || ""
+                    text: entry.summary || ""
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontPixelSize
                     font.weight: Font.Medium
                     color: urgentColor(isUrgent)
                     elide: Text.ElideRight
-                    visible: (modelData.summary || "").length > 0
+                    visible: (entry.summary || "").length > 0
                 }
 
                 // 本文 (薄い色、2行まで)
                 Text {
                     width: parent.width
-                    text: modelData.body || ""
+                    text: entry.body || ""
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontPixelSizeCaption
                     color: Theme.textMuted
                     maximumLineCount: 2
                     elide: Text.ElideRight
                     wrapMode: Text.WordWrap
-                    visible: (modelData.body || "").length > 0
+                    visible: (entry.body || "").length > 0
                 }
             }
 
             // 右側: 削除ボタン
             IconButton {
-                iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'/>"
+                iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%23E8F4F2' d='M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'/></svg>"
                 iconSize: 18
                 buttonSize: 32
                 tooltipText: qsTr("この通知を削除")
                 onClicked: {
-                    delegateRoot.removeClicked(modelData.id)
+                    delegateRoot.removeClicked(entry.id)
                 }
             }
         }

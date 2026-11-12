@@ -4,6 +4,7 @@
 #include <KConfigGroup>
 #include <QColor>
 #include <QDebug>
+#include <QRegularExpression>
 #include <QStandardPaths>
 
 namespace {
@@ -14,6 +15,7 @@ constexpr char kGroupGeometry[] = "Geometry";
 constexpr char kGroupTheme[] = "Theme";
 constexpr char kGroupBehavior[] = "Behavior";
 constexpr char kGroupIntervals[] = "Intervals";
+constexpr char kGroupMeta[] = "Meta";
 
 // デフォルト値 (PLAN §11 準拠)
 constexpr char kDefLanguage[] = "ja";
@@ -38,6 +40,22 @@ constexpr int kDefMaxHistory = 100;
 constexpr int kDefStatsInterval = 1000;
 constexpr int kDefBatteryInterval = 30000;
 constexpr int kDefWeatherInterval = 900000;
+
+// 検証用の制限値
+constexpr int kMinCollapsedWidth = 100;
+constexpr int kMaxCollapsedWidth = 800;
+constexpr int kMinCollapsedHeight = 20;
+constexpr int kMaxCollapsedHeight = 100;
+constexpr int kMinExpandedWidth = 300;
+constexpr int kMaxExpandedWidth = 1200;
+constexpr int kMinExpandedHeight = 200;
+constexpr int kMaxExpandedHeight = 800;
+constexpr int kMinRadius = 0;
+constexpr int kMaxRadius = 100;
+constexpr qreal kMinOpacity = 0.1;
+constexpr qreal kMaxOpacity = 1.0;
+constexpr int kMinInterval = 100;       // 100ms minimum
+constexpr int kMaxInterval = 3600000;   // 1 hour maximum
 
 } // namespace
 
@@ -74,6 +92,7 @@ public:
     int m_statsInterval = kDefStatsInterval;
     int m_batteryInterval = kDefBatteryInterval;
     int m_weatherInterval = kDefWeatherInterval;
+    int m_schemaVersion = ConfigService::CurrentSchemaVersion;
 
     // 汎用セッタ
     template <typename T>
@@ -82,47 +101,61 @@ public:
         if (field == value) return false;
         field = value;
         QMetaObject::invokeMethod(q_ptr, signal, Qt::DirectConnection);
+        QMetaObject::invokeMethod(q_ptr, "configChanged", Qt::DirectConnection);
         return true;
     }
 
     void loadAll()
     {
-        KConfigGroup g = config.group(kGroupGeneral);
-        m_language = g.readEntry("Language", kDefLanguage);
-        m_anchor = g.readEntry("Anchor", kDefAnchor);
+        KConfigGroup g = config.group(kGroupMeta);
+        m_schemaVersion = g.readEntry("SchemaVersion", 0);
+
+        g = config.group(kGroupGeneral);
+        m_language = clampLanguage(g.readEntry("Language", kDefLanguage));
+        m_anchor = clampAnchor(g.readEntry("Anchor", kDefAnchor));
         m_autoHideFullscreen = g.readEntry("AutoHideFullscreen", kDefAutoHideFullscreen);
 
         g = config.group(kGroupGeometry);
-        m_collapsedWidth = g.readEntry("CollapsedWidth", kDefCollapsedWidth);
-        m_collapsedHeight = g.readEntry("CollapsedHeight", kDefCollapsedHeight);
-        m_expandedWidth = g.readEntry("ExpandedWidth", kDefExpandedWidth);
-        m_expandedHeight = g.readEntry("ExpandedHeight", kDefExpandedHeight);
-        m_radiusCollapsed = g.readEntry("CornerRadiusCollapsed", kDefRadiusCollapsed);
-        m_radiusExpanded = g.readEntry("CornerRadiusExpanded", kDefRadiusExpanded);
+        m_collapsedWidth = clampGeometry(g.readEntry("CollapsedWidth", kDefCollapsedWidth), kMinCollapsedWidth, kMaxCollapsedWidth, kDefCollapsedWidth);
+        m_collapsedHeight = clampGeometry(g.readEntry("CollapsedHeight", kDefCollapsedHeight), kMinCollapsedHeight, kMaxCollapsedHeight, kDefCollapsedHeight);
+        m_expandedWidth = clampGeometry(g.readEntry("ExpandedWidth", kDefExpandedWidth), kMinExpandedWidth, kMaxExpandedWidth, kDefExpandedWidth);
+        m_expandedHeight = clampGeometry(g.readEntry("ExpandedHeight", kDefExpandedHeight), kMinExpandedHeight, kMaxExpandedHeight, kDefExpandedHeight);
+        m_radiusCollapsed = clampGeometry(g.readEntry("CornerRadiusCollapsed", kDefRadiusCollapsed), kMinRadius, kMaxRadius, kDefRadiusCollapsed);
+        m_radiusExpanded = clampGeometry(g.readEntry("CornerRadiusExpanded", kDefRadiusExpanded), kMinRadius, kMaxRadius, kDefRadiusExpanded);
 
         g = config.group(kGroupTheme);
-        m_accentColor = g.readEntry("AccentColor", kDefAccentColor);
-        m_opacity = g.readEntry("Opacity", kDefOpacity);
+        m_accentColor = QColor(g.readEntry("AccentColor", kDefAccentColor));
+        if (!m_accentColor.isValid()) m_accentColor = QColor(kDefAccentColor);
+        m_opacity = clampOpacity(g.readEntry("Opacity", kDefOpacity));
         m_blurEnabled = g.readEntry("BlurEnabled", kDefBlurEnabled);
 
         g = config.group(kGroupBehavior);
         m_dnd = g.readEntry("Dnd", kDefDnd);
         m_enabledPages = g.readEntry("EnabledPages", kDefEnabledPages);
         m_weatherLocation = g.readEntry("WeatherLocation", kDefWeatherLocation);
-        m_weatherUnit = g.readEntry("WeatherUnit", kDefWeatherUnit);
+        m_weatherUnit = clampWeatherUnit(g.readEntry("WeatherUnit", kDefWeatherUnit));
         m_ownDaemon = g.readEntry("OwnDaemon", kDefOwnDaemon);
         m_doNotDisturb = g.readEntry("DoNotDisturb", kDefDoNotDisturb);
-        m_maxHistory = g.readEntry("MaxHistory", kDefMaxHistory);
+        m_maxHistory = clampGeometry(g.readEntry("MaxHistory", kDefMaxHistory), 10, 1000, kDefMaxHistory);
 
         g = config.group(kGroupIntervals);
-        m_statsInterval = g.readEntry("StatsInterval", kDefStatsInterval);
-        m_batteryInterval = g.readEntry("BatteryInterval", kDefBatteryInterval);
-        m_weatherInterval = g.readEntry("WeatherInterval", kDefWeatherInterval);
+        m_statsInterval = clampInterval(g.readEntry("StatsInterval", kDefStatsInterval), kMinInterval, kDefStatsInterval);
+        m_batteryInterval = clampInterval(g.readEntry("BatteryInterval", kDefBatteryInterval), kMinInterval, kDefBatteryInterval);
+        m_weatherInterval = clampInterval(g.readEntry("WeatherInterval", kDefWeatherInterval), kMinInterval, kDefWeatherInterval);
+
+        // マイグレーション (将来用)
+        if (m_schemaVersion < ConfigService::CurrentSchemaVersion) {
+            migrate(m_schemaVersion);
+            m_schemaVersion = ConfigService::CurrentSchemaVersion;
+        }
     }
 
     void saveAll()
     {
-        KConfigGroup g = config.group(kGroupGeneral);
+        KConfigGroup g = config.group(kGroupMeta);
+        g.writeEntry("SchemaVersion", ConfigService::CurrentSchemaVersion);
+
+        g = config.group(kGroupGeneral);
         g.writeEntry("Language", m_language);
         g.writeEntry("Anchor", m_anchor);
         g.writeEntry("AutoHideFullscreen", m_autoHideFullscreen);
@@ -157,6 +190,14 @@ public:
         config.sync();
     }
 
+    void migrate(int fromVersion)
+    {
+        Q_UNUSED(fromVersion);
+        // 将来のスキーママイグレーションロジックをここに追加
+        // 例: fromVersion == 1 -> v2 への変換
+        qDebug() << "ConfigService: Migrating schema from version" << fromVersion << "to" << ConfigService::CurrentSchemaVersion;
+    }
+
     void resetToDefaults()
     {
         m_language = kDefLanguage;
@@ -181,6 +222,70 @@ public:
         m_statsInterval = kDefStatsInterval;
         m_batteryInterval = kDefBatteryInterval;
         m_weatherInterval = kDefWeatherInterval;
+        m_schemaVersion = ConfigService::CurrentSchemaVersion;
+    }
+
+    // 検証・クランプ用静的関数 (テスト可能)
+    static int clampGeometry(int value, int min, int max, int defaultValue)
+    {
+        if (value < min || value > max) {
+            qWarning() << "ConfigService: Geometry value" << value << "out of range [" << min << "," << max << "], using default" << defaultValue;
+            return defaultValue;
+        }
+        return value;
+    }
+
+    static qreal clampOpacity(qreal value)
+    {
+        if (value < kMinOpacity || value > kMaxOpacity || qIsNaN(value)) {
+            qWarning() << "ConfigService: Opacity value" << value << "out of range [" << kMinOpacity << "," << kMaxOpacity << "], using default" << kDefOpacity;
+            return kDefOpacity;
+        }
+        return value;
+    }
+
+    static QString clampAnchor(const QString &value)
+    {
+        static const QStringList validAnchors = {"top", "top-left", "top-right"};
+        if (!validAnchors.contains(value)) {
+            qWarning() << "ConfigService: Invalid anchor" << value << ", using default" << kDefAnchor;
+            return kDefAnchor;
+        }
+        return value;
+    }
+
+    static QString clampLanguage(const QString &value)
+    {
+        // 言語コード: "ja", "en", "ja_JP", "en_US" など
+        if (value.isEmpty()) {
+            qWarning() << "ConfigService: Empty language, using default" << kDefLanguage;
+            return kDefLanguage;
+        }
+        // 基本的な形式チェック (2-5文字のアルファベット/アンダースコア)
+        static const QRegularExpression langRe("^[a-z]{2}(_[A-Z]{2})?$");
+        if (!langRe.match(value).hasMatch()) {
+            qWarning() << "ConfigService: Invalid language code" << value << ", using default" << kDefLanguage;
+            return kDefLanguage;
+        }
+        return value;
+    }
+
+    static QString clampWeatherUnit(const QString &value)
+    {
+        if (value != "metric" && value != "imperial") {
+            qWarning() << "ConfigService: Invalid weather unit" << value << ", using default" << kDefWeatherUnit;
+            return kDefWeatherUnit;
+        }
+        return value;
+    }
+
+    static int clampInterval(int value, int min, int defaultValue)
+    {
+        if (value < min || value > kMaxInterval) {
+            qWarning() << "ConfigService: Interval value" << value << "out of range [" << min << "," << kMaxInterval << "], using default" << defaultValue;
+            return defaultValue;
+        }
+        return value;
     }
 };
 
@@ -190,28 +295,129 @@ ConfigService::ConfigService(QObject *parent)
     d->loadAll();
 }
 
-void ConfigService::setLanguage(const QString &v) { if (d->setIfChanged(d->m_language, v, "languageChanged")) {} }
-void ConfigService::setAnchor(const QString &v) { if (d->setIfChanged(d->m_anchor, v, "anchorChanged")) {} }
-void ConfigService::setAutoHideFullscreen(bool v) { if (d->setIfChanged(d->m_autoHideFullscreen, v, "autoHideFullscreenChanged")) {} }
-void ConfigService::setCollapsedWidth(int v) { if (d->setIfChanged(d->m_collapsedWidth, v, "collapsedWidthChanged")) {} }
-void ConfigService::setCollapsedHeight(int v) { if (d->setIfChanged(d->m_collapsedHeight, v, "collapsedHeightChanged")) {} }
-void ConfigService::setExpandedWidth(int v) { if (d->setIfChanged(d->m_expandedWidth, v, "expandedWidthChanged")) {} }
-void ConfigService::setExpandedHeight(int v) { if (d->setIfChanged(d->m_expandedHeight, v, "expandedHeightChanged")) {} }
-void ConfigService::setRadiusCollapsed(int v) { if (d->setIfChanged(d->m_radiusCollapsed, v, "radiusCollapsedChanged")) {} }
-void ConfigService::setRadiusExpanded(int v) { if (d->setIfChanged(d->m_radiusExpanded, v, "radiusExpandedChanged")) {} }
-void ConfigService::setAccentColor(const QColor &v) { if (d->setIfChanged(d->m_accentColor, v, "accentColorChanged")) {} }
-void ConfigService::setOpacity(qreal v) { if (d->setIfChanged(d->m_opacity, v, "opacityChanged")) {} }
-void ConfigService::setBlurEnabled(bool v) { if (d->setIfChanged(d->m_blurEnabled, v, "blurEnabledChanged")) {} }
-void ConfigService::setDnd(bool v) { if (d->setIfChanged(d->m_dnd, v, "dndChanged")) {} }
-void ConfigService::setEnabledPages(const QString &v) { if (d->setIfChanged(d->m_enabledPages, v, "enabledPagesChanged")) {} }
-void ConfigService::setWeatherLocation(const QString &v) { if (d->setIfChanged(d->m_weatherLocation, v, "weatherLocationChanged")) {} }
-void ConfigService::setWeatherUnit(const QString &v) { if (d->setIfChanged(d->m_weatherUnit, v, "weatherUnitChanged")) {} }
-void ConfigService::setOwnDaemon(bool v) { if (d->setIfChanged(d->m_ownDaemon, v, "ownDaemonChanged")) {} }
-void ConfigService::setDoNotDisturb(bool v) { if (d->setIfChanged(d->m_doNotDisturb, v, "doNotDisturbChanged")) {} }
-void ConfigService::setMaxHistory(int v) { if (d->setIfChanged(d->m_maxHistory, v, "maxHistoryChanged")) {} }
-void ConfigService::setStatsInterval(int v) { if (d->setIfChanged(d->m_statsInterval, v, "statsIntervalChanged")) {} }
-void ConfigService::setBatteryInterval(int v) { if (d->setIfChanged(d->m_batteryInterval, v, "batteryIntervalChanged")) {} }
-void ConfigService::setWeatherInterval(int v) { if (d->setIfChanged(d->m_weatherInterval, v, "weatherIntervalChanged")) {} }
+void ConfigService::setLanguage(const QString &v)
+{
+    const QString clamped = Private::clampLanguage(v);
+    if (d->setIfChanged(d->m_language, clamped, "languageChanged")) {}
+}
+
+void ConfigService::setAnchor(const QString &v)
+{
+    const QString clamped = Private::clampAnchor(v);
+    if (d->setIfChanged(d->m_anchor, clamped, "anchorChanged")) {}
+}
+
+void ConfigService::setAutoHideFullscreen(bool v)
+{
+    if (d->setIfChanged(d->m_autoHideFullscreen, v, "autoHideFullscreenChanged")) {}
+}
+
+void ConfigService::setCollapsedWidth(int v)
+{
+    const int clamped = Private::clampGeometry(v, kMinCollapsedWidth, kMaxCollapsedWidth, kDefCollapsedWidth);
+    if (d->setIfChanged(d->m_collapsedWidth, clamped, "collapsedWidthChanged")) {}
+}
+
+void ConfigService::setCollapsedHeight(int v)
+{
+    const int clamped = Private::clampGeometry(v, kMinCollapsedHeight, kMaxCollapsedHeight, kDefCollapsedHeight);
+    if (d->setIfChanged(d->m_collapsedHeight, clamped, "collapsedHeightChanged")) {}
+}
+
+void ConfigService::setExpandedWidth(int v)
+{
+    const int clamped = Private::clampGeometry(v, kMinExpandedWidth, kMaxExpandedWidth, kDefExpandedWidth);
+    if (d->setIfChanged(d->m_expandedWidth, clamped, "expandedWidthChanged")) {}
+}
+
+void ConfigService::setExpandedHeight(int v)
+{
+    const int clamped = Private::clampGeometry(v, kMinExpandedHeight, kMaxExpandedHeight, kDefExpandedHeight);
+    if (d->setIfChanged(d->m_expandedHeight, clamped, "expandedHeightChanged")) {}
+}
+
+void ConfigService::setRadiusCollapsed(int v)
+{
+    const int clamped = Private::clampGeometry(v, kMinRadius, kMaxRadius, kDefRadiusCollapsed);
+    if (d->setIfChanged(d->m_radiusCollapsed, clamped, "radiusCollapsedChanged")) {}
+}
+
+void ConfigService::setRadiusExpanded(int v)
+{
+    const int clamped = Private::clampGeometry(v, kMinRadius, kMaxRadius, kDefRadiusExpanded);
+    if (d->setIfChanged(d->m_radiusExpanded, clamped, "radiusExpandedChanged")) {}
+}
+
+void ConfigService::setAccentColor(const QColor &v)
+{
+    if (d->setIfChanged(d->m_accentColor, v.isValid() ? v : QColor(kDefAccentColor), "accentColorChanged")) {}
+}
+
+void ConfigService::setOpacity(qreal v)
+{
+    const qreal clamped = Private::clampOpacity(v);
+    if (d->setIfChanged(d->m_opacity, clamped, "opacityChanged")) {}
+}
+
+void ConfigService::setBlurEnabled(bool v)
+{
+    if (d->setIfChanged(d->m_blurEnabled, v, "blurEnabledChanged")) {}
+}
+
+void ConfigService::setDnd(bool v)
+{
+    if (d->setIfChanged(d->m_dnd, v, "dndChanged")) {}
+}
+
+void ConfigService::setEnabledPages(const QString &v)
+{
+    if (d->setIfChanged(d->m_enabledPages, v, "enabledPagesChanged")) {}
+}
+
+void ConfigService::setWeatherLocation(const QString &v)
+{
+    if (d->setIfChanged(d->m_weatherLocation, v, "weatherLocationChanged")) {}
+}
+
+void ConfigService::setWeatherUnit(const QString &v)
+{
+    const QString clamped = Private::clampWeatherUnit(v);
+    if (d->setIfChanged(d->m_weatherUnit, clamped, "weatherUnitChanged")) {}
+}
+
+void ConfigService::setOwnDaemon(bool v)
+{
+    if (d->setIfChanged(d->m_ownDaemon, v, "ownDaemonChanged")) {}
+}
+
+void ConfigService::setDoNotDisturb(bool v)
+{
+    if (d->setIfChanged(d->m_doNotDisturb, v, "doNotDisturbChanged")) {}
+}
+
+void ConfigService::setMaxHistory(int v)
+{
+    const int clamped = Private::clampGeometry(v, 10, 1000, kDefMaxHistory);
+    if (d->setIfChanged(d->m_maxHistory, clamped, "maxHistoryChanged")) {}
+}
+
+void ConfigService::setStatsInterval(int v)
+{
+    const int clamped = Private::clampInterval(v, kMinInterval, kDefStatsInterval);
+    if (d->setIfChanged(d->m_statsInterval, clamped, "statsIntervalChanged")) {}
+}
+
+void ConfigService::setBatteryInterval(int v)
+{
+    const int clamped = Private::clampInterval(v, kMinInterval, kDefBatteryInterval);
+    if (d->setIfChanged(d->m_batteryInterval, clamped, "batteryIntervalChanged")) {}
+}
+
+void ConfigService::setWeatherInterval(int v)
+{
+    const int clamped = Private::clampInterval(v, kMinInterval, kDefWeatherInterval);
+    if (d->setIfChanged(d->m_weatherInterval, clamped, "weatherIntervalChanged")) {}
+}
 
 QString ConfigService::language() const { return d->m_language; }
 QString ConfigService::anchor() const { return d->m_anchor; }
@@ -239,5 +445,38 @@ int ConfigService::weatherInterval() const { return d->m_weatherInterval; }
 void ConfigService::save() { d->saveAll(); }
 void ConfigService::load() { d->loadAll(); }
 void ConfigService::resetToDefaults() { d->resetToDefaults(); }
+
+int ConfigService::schemaVersion() const { return d->m_schemaVersion; }
+
+// 静的検証関数 (単体テスト用)
+int ConfigService::clampGeometry(int value, int min, int max, int defaultValue)
+{
+    return Private::clampGeometry(value, min, max, defaultValue);
+}
+
+qreal ConfigService::clampOpacity(qreal value)
+{
+    return Private::clampOpacity(value);
+}
+
+QString ConfigService::clampAnchor(const QString &value)
+{
+    return Private::clampAnchor(value);
+}
+
+QString ConfigService::clampLanguage(const QString &value)
+{
+    return Private::clampLanguage(value);
+}
+
+QString ConfigService::clampWeatherUnit(const QString &value)
+{
+    return Private::clampWeatherUnit(value);
+}
+
+int ConfigService::clampInterval(int value, int min, int defaultValue)
+{
+    return Private::clampInterval(value, min, defaultValue);
+}
 
 ConfigService::~ConfigService() = default;

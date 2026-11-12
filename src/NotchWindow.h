@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QRegion>
+#include <QString>
 
 #include <memory>
 
@@ -59,6 +60,16 @@ signals:
 private slots:
     /** QML `Notch.shapeSettled(x, y, w, h, radius)` (Main ルート基準の論理 px)。 */
     void onShapeSettled(double x, double y, double w, double h, double radius);
+    /**
+     * QML `Notch.shapeGeometryChanged(...)`。スプリングアニメ中の実形状。
+     * ブラー領域だけを毎フレーム追従させる (入力マスクは target 側で即時更新)。
+     */
+    void onShapeGeometryChanged(double x, double y, double w, double h, double radius);
+    /**
+     * QML `Notch.shapeTargetChanged(...)`。状態遷移時の到達目標形状。
+     * 入力マスクを即時更新し、開閉開始直後からクリック可能にする。
+     */
+    void onShapeTargetChanged(double x, double y, double w, double h, double radius);
     /** QML `Notch.notchState` の変更。pinned のときは全ウィンドウを入力領域にする。 */
     void onNotchStateChanged();
     /** QML `Notch.wantsKeyboardFocus` の変更。 */
@@ -83,6 +94,12 @@ private:
     void applyLayerShell();
     /** ACTIVENOTCH_PRINT_GEOMETRY=1 のとき GEOMETRY / MASK 行を stdout へ出す。 */
     void printGeometry();
+    /**
+     * ACTIVENOTCH_GRAB=<path> のとき、表示が落ち着いた頃に自ウィンドウを
+     * grabWindow() で PNG 保存し、GRAB 行を stdout へ出す。
+     * 壁紙アニメに依存せず「ノッチが描画されている / 外側が透過」を検証するため。
+     */
+    void scheduleSelfGrab();
 
     std::unique_ptr<QQuickView> m_view;
     std::unique_ptr<BlurHelper> m_blur;
@@ -93,10 +110,13 @@ private:
     bool m_qmlLoaded = false;
     bool m_fullscreenActive = false;
     bool m_geometryPrintEnabled = false;
+    QString m_grabPath;
 
     // 最後に受信したノッチ形状 (ウィンドウローカル論理 px)。
     // shapeSettled 未発火の QML でも操作できるよう collapsed ピル形状を初期値に持つ。
+    // 入力マスク用 = 到達目標 (target) / ブラー用 = 実形状 (geometry) を分離する。
     QRegion m_shapeRegion;
+    QRegion m_blurRegion;
     bool m_hasShape = false;
 
     bool m_pinned = false;

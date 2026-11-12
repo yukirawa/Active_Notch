@@ -95,7 +95,7 @@ Item {
         const item = root.results[root.selectedIndex]
         if (item.type === "calc") {
             // 計算結果をクリップボードにコピー
-            if (typeof ClipboardService !== "undefined" && ClipboardService.copy) {
+            if (typeof ClipboardService !== "undefined" && ClipboardService !== null && ClipboardService.copy) {
                 ClipboardService.copy(item.comment.replace(/^=\s*/, ""))
             }
         } else if (item.type === "app" && item.desktopFile) {
@@ -176,7 +176,7 @@ Item {
                     width: 20
                     height: 20
                     anchors.verticalCenter: parent.verticalCenter
-                    source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%239FB8B4' d='M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/>"
+                    source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%239FB8B4' d='M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/></svg>"
                 }
 
                 // 入力フィールド
@@ -205,7 +205,7 @@ Item {
                 IconButton {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: root.searchText.length > 0
-                    iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%239FB8B4' d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/>"
+                    iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'><path fill='%239FB8B4' d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/></svg>"
                     iconSize: 18
                     tooltipText: qsTr("クリア")
                     onClicked: {
@@ -232,7 +232,7 @@ Item {
                     id: spinner
                     width: 20
                     height: 20
-                    source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8L17.85 21 16.31 19.31C17.24 18.13 17.79 16.68 18 15.18 18 11.03 14.67 7.5 11 7.5c-2.51 0-4.68 1.35-5.77 3.32L6.48 8.4C7.2 6.83 8.46 5.76 10 5.76 11.66 5.76 13 7.1 13 8.76 13 10.03 12.21 11.08 11.03 11.91l-1.42 1.42C9.92 12.98 9.41 12.5 8.85 12.13 7.28 11.19 6 9.38 6 7.5 6 4.46 8.46 2 11.5 2 12.37 2 13.15 2.31 13.84 2.79L13.31 8 11.85 6.5l-.62-.56C10.28 5.57 9.45 5.25 8.56 5.25 5.02 5.25 2 8.27 2 11.81c0 1.63.58 3.12 1.55 4.26L1.48 18 4.13 20.65 6.39 17.4c.44.56.96 1.05 1.54 1.47C8.16 19.8 9.38 20.5 10.71 20.5c1.75 0 3.32-.7 4.5-1.81l2.55 2.55 3.47-3.47-4.72-4.72c-.83.44-1.72.7-2.65.7-3.87 0-7-3.13-7-7s3.13-7 7-7c1.4 0 2.66.52 3.63 1.38L16.74 6.27 18 4.99 16 3l-4 4z'/>"
+                    source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8L17.85 21 16.31 19.31C17.24 18.13 17.79 16.68 18 15.18 18 11.03 14.67 7.5 11 7.5c-2.51 0-4.68 1.35-5.77 3.32L6.48 8.4C7.2 6.83 8.46 5.76 10 5.76 11.66 5.76 13 7.1 13 8.76 13 10.03 12.21 11.08 11.03 11.91l-1.42 1.42C9.92 12.98 9.41 12.5 8.85 12.13 7.28 11.19 6 9.38 6 7.5 6 4.46 8.46 2 11.5 2 12.37 2 13.15 2.31 13.84 2.79L13.31 8 11.85 6.5l-.62-.56C10.28 5.57 9.45 5.25 8.56 5.25 5.02 5.25 2 8.27 2 11.81c0 1.63.58 3.12 1.55 4.26L1.48 18 4.13 20.65 6.39 17.4c.44.56.96 1.05 1.54 1.47C8.16 19.8 9.38 20.5 10.71 20.5c1.75 0 3.32-.7 4.5-1.81l2.55 2.55 3.47-3.47-4.72-4.72c-.83.44-1.72.7-2.65.7-3.87 0-7-3.13-7-7s3.13-7 7-7c1.4 0 2.66.52 3.63 1.38L16.74 6.27 18 4.99 16 3l-4 4z'/></svg>"
                     RotationAnimation on rotation {
                         running: loadingIndicator.visible
                         from: 0
@@ -295,7 +295,7 @@ Item {
                             width: 36
                             height: 36
                             anchors.verticalCenter: parent.verticalCenter
-                            source: modelData.icon || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='36' height='36'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/>"
+                            source: modelData.icon || "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='36' height='36'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/></svg>"
                             fillMode: Image.PreserveAspectFit
                             color: modelData.type === "calc" ? Theme.accent : Theme.textColor
                         }
@@ -386,7 +386,7 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: 48
                         height: 48
-                        source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/>"
+                        source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/></svg>"
                         opacity: 0.5
                     }
 
@@ -431,7 +431,7 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: 64
                         height: 64
-                        source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z'/>"
+                        source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z'/></svg>"
                         opacity: 0.4
                     }
 
@@ -488,7 +488,7 @@ Item {
                     Image {
                         width: 32
                         height: 32
-                        source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='32' height='32'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/>"
+                        source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='32' height='32'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/></svg>"
                         color: Theme.accentSoft
                     }
 

@@ -70,11 +70,14 @@ signals:
     void signalStrengthChanged();
     void listChanged();
 
-private:
-    void updateAvailable(bool available);
+private slots:
+    // QDBusConnection::connect は string-based のため、受信メソッドは
+    // slot として metaobject に登録されている必要がある。
     void onNmPropertiesChanged(const QString &interfaceName, const QVariantMap &properties, const QStringList &invalidatedProperties);
     void onDevicePropertiesChanged(const QString &interfaceName, const QVariantMap &properties, const QStringList &invalidatedProperties);
-    void onActiveConnectionsChanged();
+
+private:
+    void updateAvailable(bool available);
     void refreshWifiList();
     void refreshActiveConnection();
 

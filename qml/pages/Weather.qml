@@ -18,28 +18,28 @@ Item {
     // =========================================================================
     // WeatherService プロパティ (typeof ガード付き)
     // =========================================================================
-    readonly property bool available: (typeof WeatherService !== "undefined" && WeatherService.available !== undefined)
+    readonly property bool available: (typeof WeatherService !== "undefined" && WeatherService !== null && WeatherService.available !== undefined)
         ? WeatherService.available
         : false
-    readonly property real tempC: (typeof WeatherService !== "undefined" && WeatherService.tempC !== undefined)
+    readonly property real tempC: (typeof WeatherService !== "undefined" && WeatherService !== null && WeatherService.tempC !== undefined)
         ? WeatherService.tempC
         : 0
-    readonly property int code: (typeof WeatherService !== "undefined" && WeatherService.code !== undefined)
+    readonly property int code: (typeof WeatherService !== "undefined" && WeatherService !== null && WeatherService.code !== undefined)
         ? WeatherService.code
         : 0
-    readonly property string codeText: (typeof WeatherService !== "undefined" && WeatherService.codeText !== undefined)
+    readonly property string codeText: (typeof WeatherService !== "undefined" && WeatherService !== null && WeatherService.codeText !== undefined)
         ? WeatherService.codeText
         : qsTr("不明")
-    readonly property real windKmh: (typeof WeatherService !== "undefined" && WeatherService.windKmh !== undefined)
+    readonly property real windKmh: (typeof WeatherService !== "undefined" && WeatherService !== null && WeatherService.windKmh !== undefined)
         ? WeatherService.windKmh
         : 0
-    readonly property int humidity: (typeof WeatherService !== "undefined" && WeatherService.humidity !== undefined)
+    readonly property int humidity: (typeof WeatherService !== "undefined" && WeatherService !== null && WeatherService.humidity !== undefined)
         ? WeatherService.humidity
         : 0
-    readonly property string locationText: (typeof WeatherService !== "undefined" && WeatherService.locationText !== undefined)
+    readonly property string locationText: (typeof WeatherService !== "undefined" && WeatherService !== null && WeatherService.locationText !== undefined)
         ? WeatherService.locationText
         : qsTr("位置不明")
-    readonly property var daily: (typeof WeatherService !== "undefined" && WeatherService.daily !== undefined)
+    readonly property var daily: (typeof WeatherService !== "undefined" && WeatherService !== null && WeatherService.daily !== undefined)
         ? WeatherService.daily
         : []
 
@@ -56,35 +56,35 @@ Item {
     function weatherInfo(code) {
         // { emoji, iconSvg, description }
         switch (code) {
-            case 0:  return { emoji: "☀️",  desc: qsTr("快晴"),       icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/></svg>" }
-            case 1:  return { emoji: "🌤️",  desc: qsTr("晴れ"),        icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/><path fill='%23E8F4F2' d='M18.89 8.15a5.25 5.25 0 00-7.78 0H5.25a.75.75 0 000 1.5h5.86a5.25 5.25 0 007.78 0h5.86a.75.75 0 000-1.5h-5.86z'/></svg>" }
-            case 2:  return { emoji: "⛅",   desc: qsTr("一部曇り"),    icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/><path fill='%239FB8B4' d='M19.5 12.75a5.25 5.25 0 01-10.5 0H5.25a.75.75 0 000 1.5h5.86a5.25 5.25 0 017.78 3.67.75.75 0 001.5 0A6.75 6.75 0 0019.5 12.75z'/></svg>" }
-            case 3:  return { emoji: "☁️",   desc: qsTr("曇り"),        icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%239FB8B4' d='M19.5 12.75a5.25 5.25 0 01-10.5 0H5.25a.75.75 0 000 1.5h5.86a5.25 5.25 0 017.78 3.67.75.75 0 001.5 0A6.75 6.75 0 0019.5 12.75z'/></svg>" }
-            case 45: return { emoji: "🌫️",  desc: qsTr("霧"),          icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%239FB8B4' d='M3 7h18M3 12h18M3 17h18'/></svg>" }
-            case 48: return { emoji: "🌫️",  desc: qsTr("着氷性霧"),     icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%239FB8B4' d='M3 7h18M3 12h18M3 17h18'/><path fill='%23E8F4F2' d='M8 5l2 4-2 4M14 5l2 4-2 4M20 5l2 4-2 4'/></svg>" }
-            case 51: return { emoji: "🌦️",  desc: qsTr("弱い霧雨"),      icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
-            case 53: return { emoji: "🌧️",  desc: qsTr("霧雨"),          icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
-            case 55: return { emoji: "🌧️",  desc: qsTr("強い霧雨"),      icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
-            case 56: return { emoji: "🌧️",  desc: qsTr("弱い着氷性霧雨"), icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/><path fill='%23E8F4F2' d='M8 5l2 4-2 4M14 5l2 4-2 4M20 5l2 4-2 4'/></svg>" }
-            case 57: return { emoji: "🌧️",  desc: qsTr("強い着氷性霧雨"), icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/><path fill='%23E8F4F2' d='M8 5l2 4-2 4M14 5l2 4-2 4M20 5l2 4-2 4'/></svg>" }
-            case 61: return { emoji: "🌦️",  desc: qsTr("弱い雨"),        icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
-            case 63: return { emoji: "🌧️",  desc: qsTr("雨"),            icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
-            case 65: return { emoji: "🌧️",  desc: qsTr("強い雨"),        icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
-            case 66: return { emoji: "🌧️",  desc: qsTr("弱い着氷性雨"),  icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/><path fill='%23E8F4F2' d='M8 5l2 4-2 4M14 5l2 4-2 4M20 5l2 4-2 4'/></svg>" }
-            case 67: return { emoji: "🌧️",  desc: qsTr("強い着氷性雨"),  icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/><path fill='%23E8F4F2' d='M8 5l2 4-2 4M14 5l2 4-2 4M20 5l2 4-2 4'/></svg>" }
-            case 71: return { emoji: "🌨️",  desc: qsTr("弱い雪"),        icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23E8F4F2' d='M12 8l-3 5 1.5 1.5L12 11l3 5L13.5 18H10.5L12 15.5 8.5 18H7.5L9 13 6 8l3-5z'/></svg>" }
-            case 73: return { emoji: "🌨️",  desc: qsTr("雪"),            icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23E8F4F2' d='M12 8l-3 5 1.5 1.5L12 11l3 5L13.5 18H10.5L12 15.5 8.5 18H7.5L9 13 6 8l3-5z'/></svg>" }
-            case 75: return { emoji: "🌨️",  desc: qsTr("強い雪"),        icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23E8F4F2' d='M12 8l-3 5 1.5 1.5L12 11l3 5L13.5 18H10.5L12 15.5 8.5 18H7.5L9 13 6 8l3-5z'/></svg>" }
-            case 77: return { emoji: "🌨️",  desc: qsTr("雪粒"),          icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23E8F4F2' d='M12 8l-3 5 1.5 1.5L12 11l3 5L13.5 18H10.5L12 15.5 8.5 18H7.5L9 13 6 8l3-5z'/></svg>" }
-            case 80: return { emoji: "🌦️",  desc: qsTr("弱い雨天気雨"),   icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
-            case 81: return { emoji: "🌧️",  desc: qsTr("雨天気雨"),      icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
-            case 82: return { emoji: "🌧️",  desc: qsTr("激しい雨天気雨"), icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
-            case 85: return { emoji: "🌨️",  desc: qsTr("弱い雪天気雨"),   icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23E8F4F2' d='M12 8l-3 5 1.5 1.5L12 11l3 5L13.5 18H10.5L12 15.5 8.5 18H7.5L9 13 6 8l3-5z'/></svg>" }
-            case 86: return { emoji: "🌨️",  desc: qsTr("強い雪天気雨"),   icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23E8F4F2' d='M12 8l-3 5 1.5 1.5L12 11l3 5L13.5 18H10.5L12 15.5 8.5 18H7.5L9 13 6 8l3-5z'/></svg>" }
-            case 95: return { emoji: "⛈️",  desc: qsTr("雷雨"),          icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
-            case 96: return { emoji: "⛈️",  desc: qsTr("弱い雹を伴う雷雨"),icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
-            case 99: return { emoji: "⛈️",  desc: qsTr("強い雹を伴う雷雨"),icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
-            default: return { emoji: "❓",   desc: qsTr("不明"),        icon: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><text x='50%' y='55%' font-size='32' text-anchor='middle' fill='%237FB8B0'>?</text></svg>" }
+            case 0:  return { emoji: "☀️",  desc: qsTr("快晴"),       icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/></svg>" }
+            case 1:  return { emoji: "🌤️",  desc: qsTr("晴れ"),        icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/><path fill='%23E8F4F2' d='M18.89 8.15a5.25 5.25 0 00-7.78 0H5.25a.75.75 0 000 1.5h5.86a5.25 5.25 0 007.78 0h5.86a.75.75 0 000-1.5h-5.86z'/></svg>" }
+            case 2:  return { emoji: "⛅",   desc: qsTr("一部曇り"),    icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/><path fill='%239FB8B4' d='M19.5 12.75a5.25 5.25 0 01-10.5 0H5.25a.75.75 0 000 1.5h5.86a5.25 5.25 0 017.78 3.67.75.75 0 001.5 0A6.75 6.75 0 0019.5 12.75z'/></svg>" }
+            case 3:  return { emoji: "☁️",   desc: qsTr("曇り"),        icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%239FB8B4' d='M19.5 12.75a5.25 5.25 0 01-10.5 0H5.25a.75.75 0 000 1.5h5.86a5.25 5.25 0 017.78 3.67.75.75 0 001.5 0A6.75 6.75 0 0019.5 12.75z'/></svg>" }
+            case 45: return { emoji: "🌫️",  desc: qsTr("霧"),          icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%239FB8B4' d='M3 7h18M3 12h18M3 17h18'/></svg>" }
+            case 48: return { emoji: "🌫️",  desc: qsTr("着氷性霧"),     icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%239FB8B4' d='M3 7h18M3 12h18M3 17h18'/><path fill='%23E8F4F2' d='M8 5l2 4-2 4M14 5l2 4-2 4M20 5l2 4-2 4'/></svg>" }
+            case 51: return { emoji: "🌦️",  desc: qsTr("弱い霧雨"),      icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
+            case 53: return { emoji: "🌧️",  desc: qsTr("霧雨"),          icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
+            case 55: return { emoji: "🌧️",  desc: qsTr("強い霧雨"),      icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
+            case 56: return { emoji: "🌧️",  desc: qsTr("弱い着氷性霧雨"), icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/><path fill='%23E8F4F2' d='M8 5l2 4-2 4M14 5l2 4-2 4M20 5l2 4-2 4'/></svg>" }
+            case 57: return { emoji: "🌧️",  desc: qsTr("強い着氷性霧雨"), icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/><path fill='%23E8F4F2' d='M8 5l2 4-2 4M14 5l2 4-2 4M20 5l2 4-2 4'/></svg>" }
+            case 61: return { emoji: "🌦️",  desc: qsTr("弱い雨"),        icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
+            case 63: return { emoji: "🌧️",  desc: qsTr("雨"),            icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
+            case 65: return { emoji: "🌧️",  desc: qsTr("強い雨"),        icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
+            case 66: return { emoji: "🌧️",  desc: qsTr("弱い着氷性雨"),  icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/><path fill='%23E8F4F2' d='M8 5l2 4-2 4M14 5l2 4-2 4M20 5l2 4-2 4'/></svg>" }
+            case 67: return { emoji: "🌧️",  desc: qsTr("強い着氷性雨"),  icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/><path fill='%23E8F4F2' d='M8 5l2 4-2 4M14 5l2 4-2 4M20 5l2 4-2 4'/></svg>" }
+            case 71: return { emoji: "🌨️",  desc: qsTr("弱い雪"),        icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23E8F4F2' d='M12 8l-3 5 1.5 1.5L12 11l3 5L13.5 18H10.5L12 15.5 8.5 18H7.5L9 13 6 8l3-5z'/></svg>" }
+            case 73: return { emoji: "🌨️",  desc: qsTr("雪"),            icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23E8F4F2' d='M12 8l-3 5 1.5 1.5L12 11l3 5L13.5 18H10.5L12 15.5 8.5 18H7.5L9 13 6 8l3-5z'/></svg>" }
+            case 75: return { emoji: "🌨️",  desc: qsTr("強い雪"),        icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23E8F4F2' d='M12 8l-3 5 1.5 1.5L12 11l3 5L13.5 18H10.5L12 15.5 8.5 18H7.5L9 13 6 8l3-5z'/></svg>" }
+            case 77: return { emoji: "🌨️",  desc: qsTr("雪粒"),          icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23E8F4F2' d='M12 8l-3 5 1.5 1.5L12 11l3 5L13.5 18H10.5L12 15.5 8.5 18H7.5L9 13 6 8l3-5z'/></svg>" }
+            case 80: return { emoji: "🌦️",  desc: qsTr("弱い雨天気雨"),   icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
+            case 81: return { emoji: "🌧️",  desc: qsTr("雨天気雨"),      icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
+            case 82: return { emoji: "🌧️",  desc: qsTr("激しい雨天気雨"), icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
+            case 85: return { emoji: "🌨️",  desc: qsTr("弱い雪天気雨"),   icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23E8F4F2' d='M12 8l-3 5 1.5 1.5L12 11l3 5L13.5 18H10.5L12 15.5 8.5 18H7.5L9 13 6 8l3-5z'/></svg>" }
+            case 86: return { emoji: "🌨️",  desc: qsTr("強い雪天気雨"),   icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23E8F4F2' d='M12 8l-3 5 1.5 1.5L12 11l3 5L13.5 18H10.5L12 15.5 8.5 18H7.5L9 13 6 8l3-5z'/></svg>" }
+            case 95: return { emoji: "⛈️",  desc: qsTr("雷雨"),          icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
+            case 96: return { emoji: "⛈️",  desc: qsTr("弱い雹を伴う雷雨"),icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
+            case 99: return { emoji: "⛈️",  desc: qsTr("強い雹を伴う雷雨"),icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><path fill='%23FFB300' d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/><path fill='%237FB8B0' d='M8 16l2 4-2 4M14 16l2 4-2 4M20 16l2 4-2 4'/></svg>" }
+            default: return { emoji: "❓",   desc: qsTr("不明"),        icon: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='64' height='64'><text x='50%' y='55%' font-size='32' text-anchor='middle' fill='%237FB8B0'>?</text></svg>" }
         }
     }
 
@@ -108,7 +108,7 @@ Item {
     // アクション
     // =========================================================================
     function onRefresh() {
-        if (typeof WeatherService !== "undefined" && WeatherService.refresh) {
+        if (typeof WeatherService !== "undefined" && WeatherService !== null && WeatherService.refresh) {
             WeatherService.refresh()
         }
     }
@@ -130,7 +130,7 @@ Item {
             Image {
                 source: root.available
                     ? root.weatherInfo(root.code).icon
-                    : "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'><path fill='%237FB8B0' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/>"
+                    : "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'><path fill='%237FB8B0' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/></svg>"
                 width: 24
                 height: 24
                 anchors.verticalCenter: parent.verticalCenter
@@ -166,7 +166,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
 
                 IconButton {
-                    iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M17.65 6.35A7.958 7.958 0 0012 4C7.42 4 3.73 7.02 2.47 10.93l2.14 2.14A5.942 5.942 0 0112 6c2.48 0 4.56 1.48 5.51 3.49l1.64-1.64zm-11.3 11.3A7.958 7.958 0 0012 20c4.58 0 8.27-3.02 9.53-6.93l-2.14-2.14A5.942 5.942 0 0112 18c-2.48 0-4.56-1.48-5.51-3.49L2.35 17.65zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z'/>"
+                    iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M17.65 6.35A7.958 7.958 0 0012 4C7.42 4 3.73 7.02 2.47 10.93l2.14 2.14A5.942 5.942 0 0112 6c2.48 0 4.56 1.48 5.51 3.49l1.64-1.64zm-11.3 11.3A7.958 7.958 0 0012 20c4.58 0 8.27-3.02 9.53-6.93l-2.14-2.14A5.942 5.942 0 0112 18c-2.48 0-4.56-1.48-5.51-3.49L2.35 17.65zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z'/></svg>"
                     iconSize: 20
                     buttonSize: 36
                     tooltipText: qsTr("天気データを更新")
@@ -250,7 +250,7 @@ Item {
                             // 風速
                             DetailItem {
                                 Layout.fillWidth: true
-                                iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M9.59 4.59A2 2 0 1111 8H2m10.59 11.41A2 2 0 1013 18H2m15.73-7.73A2 2 0 1113.41 8H2m-1.42 8.42A2 2 0 1010.59 18H2'/></svg>"
+                                iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M9.59 4.59A2 2 0 1111 8H2m10.59 11.41A2 2 0 1013 18H2m15.73-7.73A2 2 0 1113.41 8H2m-1.42 8.42A2 2 0 1010.59 18H2'/></svg>"
                                 label: qsTr("風速")
                                 value: root.formatWind(root.windKmh)
                                 valueColor: Theme.textColor
@@ -259,7 +259,7 @@ Item {
                             // 湿度
                             DetailItem {
                                 Layout.fillWidth: true
-                                iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M12 2.69l5.66 5.66a8 8 0 11-11.31 0z'/></svg>"
+                                iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M12 2.69l5.66 5.66a8 8 0 11-11.31 0z'/></svg>"
                                 label: qsTr("湿度")
                                 value: "%1%".arg(root.humidity)
                                 valueColor: Theme.textColor
@@ -335,7 +335,7 @@ Item {
 
                     Image {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48'><path fill='%237FB8B0' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/>"
+                        source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48'><path fill='%237FB8B0' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 18c-4.553 0-8.25-3.697-8.25-8.25S7.447 5.75 12 5.75s8.25 3.697 8.25 8.25-3.697 8.25-8.25 8.25zM12 8.25a3.75 3.75 0 110 7.5 3.75 3.75 0 010-7.5z'/></svg>"
                         color: Theme.accentSoft
                     }
 

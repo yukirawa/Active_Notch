@@ -13,6 +13,12 @@
 #include <QPixmap>
 #include <QStandardPaths>
 #include <QByteArray>
+#include <QDir>
+#include <QFile>
+#include <QUrl>
+#include <QtEndian>
+#include <QCryptographicHash>
+#include <functional>
 
 namespace {
 
@@ -27,14 +33,82 @@ constexpr int kRetryIntervalMs = 5000;
 constexpr int kMaxRetries = 3;
 
 // DBusMenu レイアウト項目のキー
-constexpr char kMenuItemId[] = "id";
 constexpr char kMenuItemLabel[] = "label";
 constexpr char kMenuItemEnabled[] = "enabled";
 constexpr char kMenuItemVisible[] = "visible";
 constexpr char kMenuItemType[] = "type";
-constexpr char kMenuItemChildren[] = "children-display";
 constexpr char kMenuItemIconName[] = "icon-name";
 constexpr char kMenuItemIconData[] = "icon-data";
+
+// Watcher のシグナル値 "サービス名 + オブジェクトパス" を分割する。
+// 例: ":1.95/StatusNotifierItem" -> {":1.95", "/StatusNotifierItem"}
+bool splitSniId(const QString &id, QString *service, QString *path)
+{
+    const int slash = id.indexOf(QLatin1Char('/'));
+    if (slash <= 0) {
+        return false;
+    }
+    *service = id.left(slash);
+    *path = id.mid(slash);
+    return true;
+}
+
+// org.freedesktop.DBus.Properties.GetAll で a{sv} を一括取得する。
+// QDBusInterface::property() は動的 metaobject 経由のため、a(iiay) や o を
+// QDBusRawType として生成してしまい読めない。GetAll なら QVariantMap として
+// demarshall でき、ネストした複合型も QDBusArgument として取り出せる。
+QVariantMap getAllProperties(const QDBusConnection &bus, const QString &service,
+                             const QString &path, const QString &iface)
+{
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        service, path, QStringLiteral("org.freedesktop.DBus.Properties"),
+        QStringLiteral("GetAll"));
+    msg << iface;
+    const QDBusMessage reply = bus.call(msg);
+    if (reply.type() != QDBusMessage::ReplyMessage || reply.arguments().isEmpty()) {
+        return {};
+    }
+    QVariant value = reply.arguments().at(0);
+    if (value.userType() == qMetaTypeId<QDBusArgument>()) {
+        return qdbus_cast<QVariantMap>(value);
+    }
+    return value.toMap();
+}
+
+// QImage をキャッシュディレクトリへ PNG 保存し file:// URL を返す。
+// Qt 6.12 では Image.source の data: URL が全滅するため、トレイの
+// IconPixmap は一時ファイル経由で渡す (内容ハッシュで重複排除)。
+QString savePixmapToCache(const QImage &image)
+{
+    if (image.isNull()) {
+        return QString();
+    }
+    const QByteArray png = [&image]() {
+        QByteArray ba;
+        QBuffer buffer(&ba);
+        buffer.open(QIODevice::WriteOnly);
+        image.save(&buffer, "PNG");
+        return ba;
+    }();
+    if (png.isEmpty()) {
+        return QString();
+    }
+
+    const QString dirPath = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+                            + QStringLiteral("/trayicons");
+    QDir().mkpath(dirPath);
+    const QString hash = QString::fromLatin1(
+        QCryptographicHash::hash(png, QCryptographicHash::Sha1).toHex().left(20));
+    const QString filePath = dirPath + QLatin1Char('/') + hash + QStringLiteral(".png");
+    if (!QFile::exists(filePath)) {
+        QFile file(filePath);
+        if (!file.open(QIODevice::WriteOnly)) {
+            return QString();
+        }
+        file.write(png);
+    }
+    return QUrl::fromLocalFile(filePath).toString();
+}
 
 } // namespace
 
@@ -59,10 +133,8 @@ TrayService::TrayService(QObject *parent)
 
 TrayService::~TrayService()
 {
-    // 登録解除
-    if (m_watcherIface && m_watcherIface->isValid()) {
-        m_watcherIface->call("UnregisterHost", "ActiveNotch");
-    }
+    // org.kde.StatusNotifierWatcher に UnregisterHost は存在しない。
+    // ホスト登録は接続断で watcher 側から自然に消えるため明示解除しない。
     // メニューインターフェース削除
     for (auto &item : m_itemMap) {
         delete item.menuIface;
@@ -94,16 +166,20 @@ void TrayService::registerWatcher()
         return;
     }
 
-    // シグナル接続
-    connect(m_watcherIface, SIGNAL(StatusNotifierItemRegistered(QString,QDBusObjectPath)),
-            this, SLOT(onItemRegistered(QString,QDBusObjectPath)));
-    connect(m_watcherIface, SIGNAL(StatusNotifierItemUnregistered(QString,QDBusObjectPath)),
-            this, SLOT(onItemUnregistered(QString,QDBusObjectPath)));
+    // シグナル接続。実シグナルは 1 引数の QString で、
+    // 値は "サービス名 + オブジェクトパス" の連結文字列。
+    connect(m_watcherIface, SIGNAL(StatusNotifierItemRegistered(QString)),
+            this, SLOT(onItemRegistered(QString)));
+    connect(m_watcherIface, SIGNAL(StatusNotifierItemUnregistered(QString)),
+            this, SLOT(onItemUnregistered(QString)));
 
-    // ホスト登録
-    QDBusReply<void> reply = m_watcherIface->call("RegisterHost", "ActiveNotch");
+    // ホスト登録。正しいメソッド名は RegisterStatusNotifierHost(s)。
+    // Plasma の watcher は引数を無視するが、他実装との互換性のため
+    // 自ホストのバス名を渡す。
+    QDBusReply<void> reply =
+        m_watcherIface->call("RegisterStatusNotifierHost", m_bus.baseService());
     if (!reply.isValid()) {
-        qWarning() << "TrayService: RegisterHost failed:" << reply.error().message();
+        qWarning() << "TrayService: RegisterStatusNotifierHost failed:" << reply.error().message();
         m_available = false;
         emit availableChanged();
         return;
@@ -111,12 +187,11 @@ void TrayService::registerWatcher()
 
     qDebug() << "TrayService: Registered as StatusNotifierWatcher host";
 
-    // 既存アイテム取得
-    QDBusReply<QList<QDBusObjectPath>> itemsReply = m_watcherIface->call("RegisteredStatusNotifierItems");
-    if (itemsReply.isValid()) {
-        for (const QDBusObjectPath &path : itemsReply.value()) {
-            onItemRegistered(kWatcherService, path);
-        }
+    // 既存アイテム取得。RegisteredStatusNotifierItems は読み取り専用
+    // プロパティ (as)。メソッド呼び出しではなく property() で読む。
+    const QVariant registered = m_watcherIface->property("RegisteredStatusNotifierItems");
+    for (const QString &id : registered.toStringList()) {
+        onItemRegistered(id);
     }
 
     m_retryCount = 0;
@@ -124,9 +199,15 @@ void TrayService::registerWatcher()
     emit availableChanged();
 }
 
-void TrayService::onItemRegistered(const QString &service, const QDBusObjectPath &objectPath)
+void TrayService::onItemRegistered(const QString &serviceAndPath)
 {
-    QString itemId = generateId(service, objectPath.path());
+    QString service, path;
+    if (!splitSniId(serviceAndPath, &service, &path)) {
+        qWarning() << "TrayService: Invalid SNI id:" << serviceAndPath;
+        return;
+    }
+
+    QString itemId = generateId(service, path);
     qDebug() << "TrayService: Item registered:" << itemId;
 
     if (m_itemMap.contains(itemId)) {
@@ -136,15 +217,19 @@ void TrayService::onItemRegistered(const QString &service, const QDBusObjectPath
     TrayItem item;
     item.id = itemId;
     item.service = service;
-    item.objectPath = objectPath.path();
+    item.objectPath = path;
 
     m_itemMap[itemId] = std::move(item);
-    fetchItemProperties(service, objectPath.path());
+    fetchItemProperties(service, path);
 }
 
-void TrayService::onItemUnregistered(const QString &service, const QDBusObjectPath &objectPath)
+void TrayService::onItemUnregistered(const QString &serviceAndPath)
 {
-    QString itemId = generateId(service, objectPath.path());
+    QString service, path;
+    if (!splitSniId(serviceAndPath, &service, &path)) {
+        return;
+    }
+    QString itemId = generateId(service, path);
     qDebug() << "TrayService: Item unregistered:" << itemId;
     cleanupItem(itemId);
 }
@@ -162,12 +247,27 @@ void TrayService::fetchItemProperties(const QString &service, const QString &obj
         return;
     }
 
-    // プロパティ取得
-    item->title = itemIface.property("Title").toString();
-    item->status = itemIface.property("Status").toString(); // "Passive", "Active", "NeedsAttention"
-    item->iconName = itemIface.property("IconName").toString();
-    item->iconPixmap = itemIface.property("IconPixmap");
-    QString menuPath = itemIface.property("Menu").toString();
+    // GetAll で a{sv} を一括取得する。property() は Menu (o) や
+    // IconPixmap (a(iiay)) を QDBusRawType として生成して読めない。
+    const QVariantMap props = getAllProperties(m_bus, service, objectPath,
+                                               QString::fromLatin1(kItemInterface));
+    item->title = props.value(QStringLiteral("Title")).toString();
+    item->status = props.value(QStringLiteral("Status")).toString(); // "Passive", "Active", "NeedsAttention"
+    item->iconName = props.value(QStringLiteral("IconName")).toString();
+    item->iconPixmap = props.value(QStringLiteral("IconPixmap"));
+
+    // Menu は D-Bus の 'o' (QDBusObjectPath)。toString() では空になる。
+    const QVariant menuVar = props.value(QStringLiteral("Menu"));
+    const QString menuPath = (menuVar.userType() == qMetaTypeId<QDBusObjectPath>())
+        ? qvariant_cast<QDBusObjectPath>(menuVar).path()
+        : menuVar.toString();
+
+    // GetAll が失敗した場合のフォールバック (単純型のみ)
+    if (props.isEmpty()) {
+        item->title = itemIface.property("Title").toString();
+        item->status = itemIface.property("Status").toString();
+        item->iconName = itemIface.property("IconName").toString();
+    }
 
     // アイコンソース生成
     item->iconSource = iconToSource(item->iconPixmap);
@@ -205,21 +305,24 @@ void TrayService::fetchMenu(const QString &service, const QString &objectPath, c
         return;
     }
 
-    // シグナル接続
-    connect(item->menuIface, SIGNAL(LayoutUpdated()),
+    // シグナル接続。実シグネチャ:
+    //   LayoutUpdated(u revision, i parentId)
+    //   ItemsPropertiesUpdated(a(ia{sv}) updatedProps, a(ias) removedProps)
+    // スロット側は引数を使わない (sender() でアイテムを特定)。
+    connect(item->menuIface, SIGNAL(LayoutUpdated(uint,int)),
             this, SLOT(onMenuLayoutUpdated()));
-    connect(item->menuIface, SIGNAL(PropertiesUpdated(QDBusArgument)),
-            this, SLOT(onMenuPropertiesUpdated()));
+    // a(ia{sv}) は QDBusInterface の動的 metaobject では型解決できず
+    // SIGNAL(...) マクロが一致しない。署名文字列を明示する overload を使う。
+    m_bus.connect(service, menuPath, QString::fromLatin1(kMenuInterface),
+                  QStringLiteral("ItemsPropertiesUpdated"),
+                  QStringLiteral("a(ia{sv})a(ias)"),
+                  this, SLOT(onMenuPropertiesUpdated()));
 
-    // レイアウト取得 (GetLayout: 0 = depth, -1 = all)
-    QDBusReply<QDBusArgument> reply = item->menuIface->call("GetLayout", 0, -1, QStringList());
-    if (reply.isValid()) {
-        QDBusArgument arg = reply.value();
-        item->menuModel = buildMenuModel(arg);
-        qDebug() << "TrayService: Menu loaded for" << itemId << "with" << item->menuModel.size() << "root items";
-    } else {
-        qWarning() << "TrayService: GetLayout failed for" << itemId << ":" << reply.error().message();
-    }
+    // レイアウト取得。GetLayout は out が 2 個 (u revision, (ia{sv}av) layout)
+    // のため QDBusReply<T> では受け取れない。QDBusMessage で直接呼ぶ。
+    refreshMenu(*item);
+    qDebug() << "TrayService: Menu loaded for" << itemId
+             << "with" << item->menuModel.size() << "root items";
 }
 
 void TrayService::onMenuLayoutUpdated()
@@ -230,11 +333,8 @@ void TrayService::onMenuLayoutUpdated()
     // どのアイテムか特定
     for (auto &item : m_itemMap) {
         if (item.menuIface == senderIface) {
-            QDBusReply<QDBusArgument> reply = senderIface->call("GetLayout", 0, -1, QStringList());
-            if (reply.isValid()) {
-                item.menuModel = buildMenuModel(reply.value());
-                emit menuReady(item.id);
-            }
+            refreshMenu(item);
+            emit menuReady(item.id);
             break;
         }
     }
@@ -242,8 +342,30 @@ void TrayService::onMenuLayoutUpdated()
 
 void TrayService::onMenuPropertiesUpdated()
 {
-    // プロパティ更新時も再取得 (簡易実装)
-    onMenuLayoutUpdated();
+    // QDBusConnection::connect の署名文字列 overload では sender() から
+    // どのアイテムかを特定できない。アイテム数は少ないので全メニューを
+    // 再取得する (プロパティ更新は頻度が低い)。
+    for (auto &item : m_itemMap) {
+        if (item.menuIface && !item.menuObjectPath.isEmpty()) {
+            refreshMenu(item);
+            emit menuReady(item.id);
+        }
+    }
+}
+
+void TrayService::refreshMenu(TrayItem &item)
+{
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        item.service, item.menuObjectPath, QString::fromLatin1(kMenuInterface),
+        QStringLiteral("GetLayout"));
+    msg << 0 << -1 << QStringList();
+    const QDBusMessage reply = m_bus.call(msg);
+    if (reply.type() == QDBusMessage::ReplyMessage && reply.arguments().size() >= 2) {
+        const QVariant layoutVar = reply.arguments().at(1);
+        if (layoutVar.userType() == qMetaTypeId<QDBusArgument>()) {
+            item.menuModel = buildMenuModel(qvariant_cast<QDBusArgument>(layoutVar));
+        }
+    }
 }
 
 void TrayService::cleanupItem(const QString &id)
@@ -334,140 +456,128 @@ QVariantList TrayService::menuModel(const QString &id) const
 
 QVariantList TrayService::buildMenuModel(const QDBusArgument &layoutData)
 {
-    QVariantList result;
+    // DBusMenu GetLayout の第 2 戻り値は (ia{sv}av) の再帰構造。
+    //   ノード = (id: i, properties: a{sv}, children: av)
+    // 以前の実装は (i, i, a{ia{sv}}) を前提にしており実データと一致しなかった。
+    std::function<QVariantMap(const QDBusArgument &)> parseNode =
+        [&](const QDBusArgument &nodeArg) -> QVariantMap {
+            // 重要: 読み取りモードを使うには const でなければならない。
+            // 非 const だと書き込み用 beginStructure() が選ばれ、
+            // read-only の QDBusArgument へ書き込もうとして abort する。
+            const QDBusArgument arg = nodeArg;
+            arg.beginStructure();
+            int id = 0;
+            QVariantMap props;
+            QVariantList children;
+            arg >> id >> props >> children;
+            arg.endStructure();
 
-    // DBusMenu レイアウト構造:
-    // (revision: int, rootId: int, layouts: a{ia{sv}})
-    // layouts: map<itemId, map<property, value>>
-    // プロパティ: id, label, enabled, visible, type, children-display, icon-name, icon-data
+            QVariantMap node;
+            node["id"] = QString::number(id);
+            QString label = props.value(QLatin1String(kMenuItemLabel)).toString();
+            label.remove(QLatin1Char('&')); // ニーモニック (&) を除去
+            node["label"] = label;
+            node["enabled"] = props.value(QLatin1String(kMenuItemEnabled), true).toBool();
+            node["visible"] = props.value(QLatin1String(kMenuItemVisible), true).toBool();
+            node["type"] = props.value(QLatin1String(kMenuItemType),
+                                       QStringLiteral("standard")).toString();
 
-    layoutData.beginStructure();
-    int revision = 0;
-    int rootId = 0;
-    QVariantMap layouts;
-
-    layoutData >> revision >> rootId >> layouts;
-    layoutData.endStructure();
-
-    if (layouts.isEmpty()) return result;
-
-    // 全アイテムを収集
-    QMap<QString, QVariantMap> allItems;
-    for (auto it = layouts.constBegin(); it != layouts.constEnd(); ++it) {
-        QString key = it.key();
-        QVariantMap props = it.value().toMap();
-        props["id"] = key;
-        allItems[key] = props;
-    }
-
-    if (allItems.isEmpty()) return result;
-
-    // 子IDを収集
-    QSet<QString> childIds;
-    for (auto it = allItems.constBegin(); it != allItems.constEnd(); ++it) {
-        if (it.value().contains(kMenuItemChildren)) {
-            QString childrenStr = it.value()[kMenuItemChildren].toString();
-            QStringList childIdStrs = childrenStr.split(' ', Qt::SkipEmptyParts);
-            for (const QString &cidStr : childIdStrs) {
-                childIds.insert(cidStr);
+            QString iconSource = iconToSource(props.value(QLatin1String(kMenuItemIconData)));
+            if (iconSource.isEmpty()) {
+                const QString iconName = props.value(QLatin1String(kMenuItemIconName)).toString();
+                if (!iconName.isEmpty()) {
+                    iconSource = "image://theme/" + iconName;
+                }
             }
-        }
-    }
+            node["iconSource"] = iconSource;
 
-    // ルートアイテムを見つける (rootId または親を持たないもの)
-    QStringList rootIds;
-    QString rootIdStr = QString::number(rootId);
-    if (rootId > 0 && allItems.contains(rootIdStr)) {
-        rootIds.append(rootIdStr);
-    } else {
-        for (auto it = allItems.constBegin(); it != allItems.constEnd(); ++it) {
-            if (!childIds.contains(it.key())) {
-                rootIds.append(it.key());
-            }
-        }
-    }
-
-    // 再帰構築
-    std::function<QVariantMap(const QString&)> buildNode = [&](const QString &id) -> QVariantMap {
-        QVariantMap node;
-        auto it = allItems.find(id);
-        if (it == allItems.end()) return node;
-
-        QVariantMap props = *it;
-        node["id"] = props.value(kMenuItemId, id).toString();
-        node["label"] = props.value(kMenuItemLabel, "").toString();
-        node["enabled"] = props.value(kMenuItemEnabled, true).toBool();
-        node["visible"] = props.value(kMenuItemVisible, true).toBool();
-        node["type"] = props.value(kMenuItemType, "standard").toString(); // standard, separator, etc.
-        node["iconSource"] = iconToSource(props.value(kMenuItemIconData));
-        if (node["iconSource"].toString().isEmpty()) {
-            QString iconName = props.value(kMenuItemIconName, "").toString();
-            if (!iconName.isEmpty()) {
-                node["iconSource"] = "image://theme/" + iconName;
-            }
-        }
-
-        // 子アイテム
-        if (props.contains(kMenuItemChildren)) {
-            QString childrenStr = props[kMenuItemChildren].toString();
-            QStringList childIdStrs = childrenStr.split(' ', Qt::SkipEmptyParts);
             QVariantList childNodes;
-            for (const QString &cidStr : childIdStrs) {
-                childNodes.append(buildNode(cidStr));
+            for (const QVariant &child : children) {
+                if (child.userType() == qMetaTypeId<QDBusArgument>()) {
+                    childNodes.append(parseNode(qvariant_cast<QDBusArgument>(child)));
+                } else if (child.canConvert<QVariantMap>()) {
+                    childNodes.append(child.toMap());
+                }
             }
-            node["children"] = childNodes;
-        }
+            if (!childNodes.isEmpty()) {
+                node["children"] = childNodes;
+            }
+            return node;
+        };
 
-        return node;
-    };
-
-    for (const QString &rid : rootIds) {
-        result.append(buildNode(rid));
+    const QVariantMap root = parseNode(layoutData);
+    // ルート自身 (id=0) は表示せず、子だけをトップレベルとして返す。
+    QVariantList result = root.value(QStringLiteral("children")).toList();
+    if (result.isEmpty() && !root.isEmpty()) {
+        result.append(root);
     }
-
     return result;
 }
 
 QString TrayService::iconToSource(const QVariant &iconData)
 {
-    // iconData は a(iiibiiay) 形式: [(width, height, depth, hasAlpha, rowstride, nChannels, data)]
-    // または単一の構造体
+    // SNI の IconPixmap は a(iiay) 形式: [(width, height, data), ...]
+    // data は ARGB32 のネットワークバイトオーダー。
+    // 以前の実装は (iiibiiay) を想定しており実データと一致しなかった。
+    if (!iconData.isValid()) {
+        return QString();
+    }
 
-    if (!iconData.isValid()) return QString();
+    // 複数アイコンの配列 (QVariantList) は先頭の有効なものを使う。
+    if (iconData.typeId() == QMetaType::QVariantList) {
+        const QVariantList list = iconData.toList();
+        for (const QVariant &entry : list) {
+            const QString source = iconToSource(entry);
+            if (!source.isEmpty()) {
+                return source;
+            }
+        }
+        return QString();
+    }
 
-    // QDBusArgument として来る場合
-    if (iconData.userType() == qMetaTypeId<QDBusArgument>()) {
-        QDBusArgument arg = qvariant_cast<QDBusArgument>(iconData);
+    if (iconData.userType() != qMetaTypeId<QDBusArgument>()) {
+        return QString();
+    }
+
+    // 読み取りモードを使うため const。非 const だと書き込み用 overload になる。
+    const QDBusArgument arg = qvariant_cast<QDBusArgument>(iconData);
+    // 書き込みモードの構造体など、配列でないものは無効として扱う。
+    if (arg.currentType() != QDBusArgument::ArrayType) {
+        return QString();
+    }
+
+    arg.beginArray();
+    while (!arg.atEnd()) {
+        if (arg.currentType() != QDBusArgument::StructureType) {
+            // ay (DBusMenu icon-data) などは未対応。icon-name へフォールバック。
+            break;
+        }
         arg.beginStructure();
-        int width, height, depth, hasAlpha, rowstride, nChannels;
+        int width = 0;
+        int height = 0;
         QByteArray data;
-        arg >> width >> height >> depth >> hasAlpha >> rowstride >> nChannels >> data;
+        arg >> width >> height >> data;
         arg.endStructure();
 
-        if (width <= 0 || height <= 0 || data.isEmpty()) return QString();
-
-        QImage::Format fmt = hasAlpha ? QImage::Format_ARGB32 : QImage::Format_RGB32;
-        QImage img(reinterpret_cast<const uchar*>(data.constData()), width, height, rowstride, fmt);
-        if (img.isNull()) return QString();
-
-        // データコピー (元データが解放される可能性があるため)
-        img = img.copy();
-
-        // data URI に変換
-        QByteArray ba;
-        QBuffer buffer(&ba);
-        buffer.open(QIODevice::WriteOnly);
-        img.save(&buffer, "PNG");
-        return "data:image/png;base64," + ba.toBase64();
-    }
-
-    // QVariantList として来る場合 (複数アイコン)
-    if (iconData.typeId() == QMetaType::QVariantList) {
-        QVariantList list = iconData.toList();
-        if (!list.isEmpty()) {
-            return iconToSource(list.first());
+        if (width <= 0 || height <= 0 || data.size() < width * height * 4) {
+            continue;
         }
+
+        // ネットワークバイトオーダー (ARGB) → ホストの ARGB32 へ変換。
+        QImage image(width, height, QImage::Format_ARGB32);
+        const uchar *src = reinterpret_cast<const uchar *>(data.constData());
+        for (int y = 0; y < height; ++y) {
+            QRgb *dst = reinterpret_cast<QRgb *>(image.scanLine(y));
+            const uchar *row = src + y * width * 4;
+            for (int x = 0; x < width; ++x) {
+                dst[x] = qFromBigEndian<quint32>(row + x * 4);
+            }
+        }
+        arg.endArray();
+        // Qt 6.12 では data: URL が使えないためキャッシュファイル経由で返す。
+        return savePixmapToCache(image);
     }
+    arg.endArray();
 
     return QString();
 }

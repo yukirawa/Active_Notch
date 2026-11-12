@@ -13,7 +13,9 @@ Item {
     property string subText: ""
 
     Layout.fillWidth: true
+    Layout.preferredHeight: cardHeight
     readonly property real cardHeight: 100
+    implicitHeight: cardHeight
     height: cardHeight
 
     GlassCard {
@@ -36,7 +38,7 @@ Item {
                     height: 20
                     anchors.verticalCenter: parent.verticalCenter
                     fillMode: Image.PreserveAspectFit
-                    color: Theme.accentSoft
+                    // Image に color プロパティは存在しない (SVG の淡色 fill を使う)。
                 }
 
                 Text {

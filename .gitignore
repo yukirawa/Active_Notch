@@ -15,3 +15,9 @@ compile_commands.json
 .idea/
 *.user
 *.autosave
+
+# qt_add_translations の誤生成物 (過去の OPTIONS 引数ミス)
+-no-obsolete
+OPTIONS
+QM_FILES_INSTALL_DIR
+Testing/

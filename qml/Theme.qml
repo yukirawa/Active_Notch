@@ -29,6 +29,11 @@ QtObject {
     readonly property real springMass: 1.0
     readonly property real springSpring: 3.5
     readonly property real springDamping: 0.4
+    // 閉じる方向は振動を抑えて素早く収束させる。
+    // 低 damping のままだとスプリングが数秒揺れ続け、ブラー領域の更新や
+    // 入力マスクの確定が遅れて「閉じるのが遅い」ように見えるため。
+    readonly property real springDampingClose: 0.85
+    readonly property real springSpringClose: 4.2
 
     // ===== アニメーション: 展開内容 (時差フェード / 猶予) =================
     // 展開ブロックを 1 個ずつ遅らせてフェードさせる間隔 (PLAN §6: 20〜40ms)。
@@ -46,25 +51,32 @@ QtObject {
     readonly property real borderWidth: 1
 
     // ===== サーフェス: 生トークン (色 + 不透明度) ========================
-    // ベース: 半透明ダーク (PLAN: α 0.62〜0.78 の中央値)
+    // ベース: 半透明ダーク。
+    // 0.72 はブラー越しの壁紙を 28% しか通さず、暗い壁紙では黒一色に
+    // 見えたため 0.58 まで下げる (透過 42%)。13px 文字の可読性は維持。
     readonly property color bgBase: "#0E1518"
-    readonly property real bgOpacity: 0.72
+    readonly property real bgOpacity: 0.58
 
     // くすみ Frutiger Aero オーバーレイ (縦グラデ):
-    // 上 = 淡いアクア → 下 = くすみグレー、控えめな濃度
+    // 上 = 淡いアクア → 下 = くすみグレー。ベースを薄くした分だけ色味を増す。
     readonly property color overlayTopColor: "#8FC5BD"
-    readonly property real overlayTopOpacity: 0.16
+    readonly property real overlayTopOpacity: 0.20
     readonly property color overlayBottomColor: "#3C4A54"
-    readonly property real overlayBottomOpacity: 0.12
+    readonly property real overlayBottomOpacity: 0.14
+
+    // 乳白色のフロスト床。暗い壁紙でも実効輝度が 0 に落ちないようにする
+    // (「黒背景で透過なし」対策)。overlay の直後に 1 枚だけ重ねる。
+    readonly property color hazeColor: "#E9F5F2"
+    readonly property real hazeOpacity: 0.06
 
     // 上端スペキュラハイライト (白 α0.10〜0.18)
     readonly property color specularColor: "#FFFFFF"
-    readonly property real specularOpacity: 0.16
+    readonly property real specularOpacity: 0.18
     readonly property real specularHeight: 10     // 上端からフェードする高さ
 
-    // 発光ボーダー
+    // 発光ボーダー (薄いガラスでも輪郭が消えない強さ)
     readonly property color borderColor: "#BFE6E0"
-    readonly property real borderOpacity: 0.25
+    readonly property real borderOpacity: 0.30
 
     // ===== シャドウ: 多層ソフトドロップシャドウ ===========================
     // QtQuick 標準のみで描くため、「透過矩形 + 太 border」の角丸リングを
@@ -80,10 +92,10 @@ QtObject {
 
     // ===== アクセント / 文字色 ===========================================
     readonly property color accent: "#7FB8B0"      // くすみティール/アクア
-    readonly property color textColor: "#E8F4F2"  // 淡いアクア寄りの白
+    readonly property color textColor: "#F2FBF9"   // フロストが明るくなった分を補正
     // セカンダリテキスト (日付 / 説明文など控えめな文字)
-    readonly property color textMutedColor: "#9FB8B4"
-    readonly property real textMutedOpacity: 0.85
+    readonly property color textMutedColor: "#B8CFCA"
+    readonly property real textMutedOpacity: 0.90
 
     // ===== タイポグラフィ =================================================
     // fc-match が KR を返すため、JP を明示指定 (PLAN §8)
@@ -97,12 +109,15 @@ QtObject {
     // ===== 展開パネル: GlassCard ==========================================
     readonly property real cardRadius: 16
     readonly property real cardPadding: 18
-    // パネル背景 (すりガラス): ベース色 × 独立の不透明度
-    // (KWin ブラーと重なる前提で、shape 本体より少し浅くする)
-    readonly property real panelBgOpacity: 0.62
-    readonly property real cardBgOpacity: 0.38
+    // パネル背景 (すりガラス): 面積が大きいほど「板」に見えるため、
+    // ピルより薄くして背景のブラーを活かす。
+    readonly property real panelBgOpacity: 0.52
+    // カードはパネルより一段暗くして、本文の下だけコントラストを稼ぐ。
+    readonly property real cardBgOpacity: 0.30
     // カードの発光ボーダー: アクセント寄りで shape よりわずかに強い
-    readonly property real cardBorderOpacity: 0.30
+    readonly property real cardBorderOpacity: 0.34
+    // ポップアップ / ダイアログ (背後の情報を隠す必要があるため濃いめ)
+    readonly property real popupBgOpacity: 0.84
 
     // ===== 派生トークン (合成済み。QML 側は基本こちらを使う) ==============
     readonly property color bgSurface: Qt.rgba(
@@ -115,6 +130,10 @@ QtObject {
     readonly property color overlayBottom: Qt.rgba(
         overlayBottomColor.r, overlayBottomColor.g, overlayBottomColor.b,
         overlayBottomOpacity)
+
+    // 乳白色フロスト床
+    readonly property color haze: Qt.rgba(
+        hazeColor.r, hazeColor.g, hazeColor.b, hazeOpacity)
 
     readonly property color specular: Qt.rgba(
         specularColor.r, specularColor.g, specularColor.b, specularOpacity)
@@ -138,6 +157,10 @@ QtObject {
     // GlassCard の発光ボーダー (アクセント寄り)
     readonly property color cardBorderGlow: Qt.rgba(
         borderColor.r, borderColor.g, borderColor.b, cardBorderOpacity)
+
+    // ポップアップ背景 (ほぼ不透明)
+    readonly property color popupBg: Qt.rgba(
+        bgBase.r, bgBase.g, bgBase.b, popupBgOpacity)
 
     // セカンダリテキスト
     readonly property color textMuted: Qt.rgba(

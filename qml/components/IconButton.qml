@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Controls
 import dev.yukirawa.activenotch
 
 // IconButton — アイコンのみのボタン (ホバー/押下アニメーション付き)。
@@ -14,7 +15,7 @@ Item {
     property int iconSize: 20
     property int buttonSize: 36  // 正方形のタッチターゲット
     property string tooltipText: ""
-    property bool enabled: true
+    // enabled は Item 標準プロパティを使用する (再宣言しない)。
     property bool checkable: false
     property bool checked: false
     signal clicked
@@ -56,13 +57,9 @@ Item {
         height: root.iconSize
         anchors.centerIn: parent
         fillMode: Image.PreserveAspectFit
-        color: root.enabled
-            ? (root.checked ? Theme.accent : (root.hovered ? Theme.textColor : Theme.textColor))
-            : Theme.textMuted
-        opacity: root.enabled ? 1 : 0.5
-        Behavior on color {
-            ColorAnimation { duration: 100; easing.type: Easing.OutCubic }
-        }
+        // Image に color プロパティは存在しない (Qt 6)。
+        // SVG の淡色 fill をそのまま使い、状態は opacity で表現する。
+        opacity: root.enabled ? (root.checked ? 1.0 : 0.92) : 0.4
         // 押下時の微小スケール
         transform: Scale {
             origin.x: icon.width / 2

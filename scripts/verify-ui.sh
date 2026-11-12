@@ -17,6 +17,7 @@ ARTIFACT_DIR="$ROOT_DIR/scripts/artifacts"
 mkdir -p "$ARTIFACT_DIR"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 SHOT="$ARTIFACT_DIR/verify-ui-$STAMP.png"
+GRAB="$ARTIFACT_DIR/verify-ui-$STAMP-grab.png"
 STDOUT_LOG="$ARTIFACT_DIR/verify-ui-$STAMP.stdout.log"
 STDERR_LOG="$ARTIFACT_DIR/verify-ui-$STAMP.stderr.log"
 
@@ -49,8 +50,9 @@ if ! ./scripts/dev.sh; then
 fi
 
 # ---- 2. 起動 -------------------------------------------------------------
-echo "==> ActiveNotch を起動 (ACTIVENOTCH_PRINT_GEOMETRY=1)"
-QT_FORCE_STDERR_LOGGING=1 ACTIVENOTCH_PRINT_GEOMETRY=1 ./build/activenotch >"$STDOUT_LOG" 2>"$STDERR_LOG" &
+echo "==> ActiveNotch を起動 (ACTIVENOTCH_PRINT_GEOMETRY=1, ACTIVENOTCH_GRAB)"
+QT_FORCE_STDERR_LOGGING=1 ACTIVENOTCH_PRINT_GEOMETRY=1 ACTIVENOTCH_GRAB="$GRAB" \
+    ./build/activenotch >"$STDOUT_LOG" 2>"$STDERR_LOG" &
 APP_PID=$!
 
 # 描画・configure の完了を待つ。
@@ -63,8 +65,11 @@ if ! kill -0 "$APP_PID" 2>/dev/null; then
 fi
 
 # ---- 3. ジオメトリ行のパース --------------------------------------------
+# 座標系は C++ 側で論理px に統一済み (マルチモニタ + 混合 DPR 対応)。
 GEOMETRY_LINE="$(grep -m1 '^GEOMETRY ' "$STDOUT_LOG" || true)"
+SCREEN_LINE="$(grep -m1 '^SCREEN ' "$STDOUT_LOG" || true)"
 MASK_LINE="$(grep '^MASK ' "$STDOUT_LOG" | tail -n1 || true)"
+GRAB_LINE="$(grep -m1 '^GRAB ' "$STDOUT_LOG" || true)"
 
 field() {
     # $1 = キー, $2 = "KEY x=1 y=2 ..." 形式の行
@@ -85,25 +90,6 @@ fi
 
 IMG_W="$(magick identify -format '%w' "$SHOT")"
 IMG_H="$(magick identify -format '%h' "$SHOT")"
-
-pixel_rgb() {
-    # $1=file $2=x $3=y → "r,g,b"
-    magick "$1" -crop "1x1+$2+$3" +repage -depth 8 \
-        -format '%[fx:round(255*r)],%[fx:round(255*g)],%[fx:round(255*b)]' info:
-}
-rgb_sum_diff() {
-    # $1,$2 = "r,g,b"
-    local -a a b
-    IFS=',' read -r -a a <<<"$1"
-    IFS=',' read -r -a b <<<"$2"
-    echo $(( (${a[0]} > ${b[0]} ? ${a[0]} - ${b[0]} : ${b[0]} - ${a[0]})
-            + (${a[1]} > ${b[1]} ? ${a[1]} - ${b[1]} : ${b[1]} - ${a[1]})
-            + (${a[2]} > ${b[2]} ? ${a[2]} - ${b[2]} : ${b[2]} - ${a[2]}) ))
-}
-clamp() {
-    local v="$1" max="$2"
-    if (( v < 0 )); then echo 0; elif (( v >= max )); then echo $((max - 1)); else echo "$v"; fi
-}
 
 FAIL_COUNT=0
 print_result() {
@@ -147,70 +133,116 @@ MY="$(field y "$MASK_LINE")"
 MW="$(field w "$MASK_LINE")"
 MH="$(field h "$MASK_LINE")"
 
+# SCREEN: アプリが配置されている出力の論理ジオメトリ (マルチモニタ対応)
+SX="$(field x "$SCREEN_LINE")"
+SY="$(field y "$SCREEN_LINE")"
+SW="$(field w "$SCREEN_LINE")"
+SH="$(field h "$SCREEN_LINE")"
+SDPR="$(field dpr "$SCREEN_LINE")"
+SNAME="$(field name "$SCREEN_LINE")"
+
 printf '  GEOMETRY: x=%s y=%s w=%s h=%s scale=%s screen=%s\n' \
     "$GX" "$GY" "$GW" "$GH" "$GSCALE" "$GSCREEN"
-printf '  MASK    : x=%s y=%s w=%s h=%s\n\n' "$MX" "$MY" "$MW" "$MH"
+printf '  SCREEN  : x=%s y=%s w=%s h=%s dpr=%s name=%s\n' \
+    "$SX" "$SY" "$SW" "$SH" "$SDPR" "$SNAME"
+printf '  MASK    : x=%s y=%s w=%s h=%s (論理px)\n\n' "$MX" "$MY" "$MW" "$MH"
 
-# ---- (a) 水平中央 --------------------------------------------------------
-CENTER_X=$((MX + MW / 2))
-CENTER_DIFF=$((CENTER_X - IMG_W / 2))
-CENTER_ABS=${CENTER_DIFF#-}
+# MASK 中心 (論理) と、その出力 (SCREEN) の中心 (論理)
+MASK_CX="$(awk -v x="$MX" -v w="$MW" 'BEGIN { print x + w/2 }')"
+MASK_CY="$(awk -v y="$MY" -v h="$MH" 'BEGIN { print y + h/2 }')"
+SCREEN_CX="$(awk -v x="$SX" -v w="$SW" 'BEGIN { print x + w/2 }')"
+CENTER_DIFF="$(awk -v a="$MASK_CX" -v b="$SCREEN_CX" 'BEGIN { printf "%d", a - b }')"
+CENTER_ABS="${CENTER_DIFF#-}"
+
+# ---- (a) 配置先の出力の水平中央 ------------------------------------------
+# デスクトップ全体の中央ではなく「アプリが載っている出力 (SCREEN)」の
+# 中央と比較する。これがマルチモニタで正しい判定になる。
 if (( CENTER_ABS <= 2 )); then
-    print_result "(a) MASK 中心が画面中央 (±2px)" "PASS" \
-        "cx=${CENTER_X} W/2=$((IMG_W / 2)) 差=${CENTER_DIFF}px"
+    print_result "(a) MASK 中心が配置先出力の中央 (±2px)" "PASS" \
+        "mask_cx=${MASK_CX} screen_cx=${SCREEN_CX} (${SNAME}) 差=${CENTER_DIFF}px"
 else
-    print_result "(a) MASK 中心が画面中央 (±2px)" "FAIL" \
-        "cx=${CENTER_X} W/2=$((IMG_W / 2)) 差=${CENTER_DIFF}px"
+    print_result "(a) MASK 中心が配置先出力の中央 (±2px)" "FAIL" \
+        "mask_cx=${MASK_CX} screen_cx=${SCREEN_CX} (${SNAME}) 差=${CENTER_DIFF}px"
 fi
 
-# ---- (b) MASK サイズ (物理 px, scale 追従) ------------------------------
-# collapsed ピルは論理 220x30。物理サイズは DPR 倍になる。
-# 実機 eDP-1 (scale 1.2) なら 264x36、DP-2 (scale 1.0) なら 220x30。
-EXPECTED_MW="$(awk -v s="$GSCALE" 'BEGIN { printf "%d", 220 * s + 0.5 }')"
-EXPECTED_MH="$(awk -v s="$GSCALE" 'BEGIN { printf "%d", 30 * s + 0.5 }')"
+# ---- (b) MASK サイズ (論理px) --------------------------------------------
+# collapsed ピルは論理 220x30。C++ の出力も論理px なので DPR 倍しない。
+EXPECTED_MW=220
+EXPECTED_MH=30
 MW_DIFF=$((MW - EXPECTED_MW))
 MH_DIFF=$((MH - EXPECTED_MH))
 MW_DIFF_ABS=${MW_DIFF#-}
 MH_DIFF_ABS=${MH_DIFF#-}
 if (( MW_DIFF_ABS <= 2 && MH_DIFF_ABS <= 2 )); then
     print_result "(b) MASK がピル相当サイズ" "PASS" \
-        "${MW}x${MH}px (期待 ${EXPECTED_MW}x${EXPECTED_MH} = 220x30 x scale ${GSCALE})"
+        "${MW}x${MH}px (期待 ${EXPECTED_MW}x${EXPECTED_MH} 論理px)"
 else
     print_result "(b) MASK がピル相当サイズ" "FAIL" \
-        "${MW}x${MH}px (期待 ${EXPECTED_MW}x${EXPECTED_MH} = 220x30 x scale ${GSCALE}, 許容 ±2px)"
+        "${MW}x${MH}px (期待 ${EXPECTED_MW}x${EXPECTED_MH} 論理px, 許容 ±2px)"
 fi
 
-# ---- 色検証用座標 --------------------------------------------------------
-CENTER_PX="$(clamp "$CENTER_X" "$IMG_W")"
-CENTER_PY="$(clamp $((MY + MH / 2)) "$IMG_H")"
-OUTSIDE_PX="$(clamp "$CENTER_X" "$IMG_W")"
-OUTSIDE_PY="$(clamp $((MY + MH + 10)) "$IMG_H")"
-BELOW_REF_PY="$(clamp $((MY + MH + 60)) "$IMG_H")"
-SIDE_REF_PX="$(clamp 60 "$IMG_W")"
+# ---- (c) 自ウィンドウ grab で「描画」と「外側透過」を検証 -----------------
+# 壁紙がアニメーションするため、スクリーンショットの色差分は不安定。
+# ACTIVENOTCH_GRAB でアプリ自身のウィンドウ (alpha 付き) を取り出し、
+# ピル中心が不透明・ピル外が完全透過であることを直接確認する。
+GRAB_W="$(field w "$GRAB_LINE")"
+GRAB_H="$(field h "$GRAB_LINE")"
+GRAB_SCALE="$(awk -v g="$GRAB_W" -v w="$GW" 'BEGIN {
+    if (w > 0) printf "%.4f", g / w; else print "1"
+}')"
 
-PILL_RGB="$(pixel_rgb "$SHOT" "$CENTER_PX" "$CENTER_PY")"
-DESKTOP_BELOW_RGB="$(pixel_rgb "$SHOT" "$CENTER_PX" "$BELOW_REF_PY")"
-OUTSIDE_RGB="$(pixel_rgb "$SHOT" "$OUTSIDE_PX" "$OUTSIDE_PY")"
-SIDE_REF_RGB="$(pixel_rgb "$SHOT" "$SIDE_REF_PX" "$OUTSIDE_PY")"
+# ウィンドウの配置原点 (論理px)。layer-shell の AnchorTop + 中央寄せ。
+WIN_X="$(awk -v sx="$SX" -v sw="$SW" -v gw="$GW" 'BEGIN { printf "%d", sx + (sw - gw) / 2 }')"
+WIN_Y="$SY"
 
-# ---- (c) ピル内がデスクトップと異なる ------------------------------------
-PILL_DIFF="$(rgb_sum_diff "$PILL_RGB" "$DESKTOP_BELOW_RGB")"
-if (( PILL_DIFF > 20 )); then
-    print_result "(c) ピル中心がデスクトップと異なる色" "PASS" \
-        "pill=${PILL_RGB} desktop=${DESKTOP_BELOW_RGB} 差=${PILL_DIFF}"
+grab_x() { awk -v v="$1" -v s="$GRAB_SCALE" 'BEGIN { printf "%d", v*s + 0.5 }'; }
+
+# ピル中心 (ウィンドウローカル → grab 座標)
+PILL_LX=$((MX - WIN_X + MW / 2))
+PILL_LY=$((MY - WIN_Y + MH / 2))
+PILL_GX="$(grab_x "$PILL_LX")"
+PILL_GY="$(grab_x "$PILL_LY")"
+# ピル外の参照点 (ウィンドウ左下寄り。collapsed では必ず透明)
+OUT_GX="$(grab_x 60)"
+OUT_GY="$(grab_x $((GH - 60)))"
+
+grab_alpha() {
+    magick "$GRAB" -crop "1x1+$1+$2" +repage -format '%[fx:round(255*a)]' info:
+}
+
+if [[ -z "$GRAB_LINE" || ! -s "$GRAB" ]]; then
+    print_result "(c) ノッチが描画され外側が透過" "FAIL" \
+        "自ウィンドウ grab が取得できませんでした (GRAB 行なし)"
 else
-    print_result "(c) ピル中心がデスクトップと異なる色" "FAIL" \
-        "pill=${PILL_RGB} desktop=${DESKTOP_BELOW_RGB} 差=${PILL_DIFF} (<=20)"
+    PILL_ALPHA="$(grab_alpha "$PILL_GX" "$PILL_GY")"
+    OUT_ALPHA="$(grab_alpha "$OUT_GX" "$OUT_GY")"
+    if (( PILL_ALPHA >= 100 && OUT_ALPHA == 0 )); then
+        print_result "(c) ノッチが描画され外側が透過" "PASS" \
+            "pill_alpha=${PILL_ALPHA} outside_alpha=${OUT_ALPHA} (grab ${GRAB_W}x${GRAB_H})"
+    else
+        print_result "(c) ノッチが描画され外側が透過" "FAIL" \
+            "pill_alpha=${PILL_ALPHA} (>=100) outside_alpha=${OUT_ALPHA} (==0)"
+    fi
 fi
 
-# ---- (d) ピル外はデスクトップと同色 --------------------------------------
-OUTSIDE_DIFF="$(rgb_sum_diff "$OUTSIDE_RGB" "$SIDE_REF_RGB")"
-if (( OUTSIDE_DIFF < 30 )); then
-    print_result "(d) MASK 外数px 下はデスクトップと同色" "PASS" \
-        "outside=${OUTSIDE_RGB} ref=${SIDE_REF_RGB} 差=${OUTSIDE_DIFF}"
+# ---- (d) 入力マスクはピル領域のみ ----------------------------------------
+# setMask() により MASK 外はクリック透過になる。マスクがウィンドウ全体へ
+# 広がっていないことを幾何的に確認する (外側クリック透過の担保)。
+if (( MW * 2 <= GW && MH * 4 <= GH )); then
+    print_result "(d) 入力マスクはピル領域のみ (外側クリック透過)" "PASS" \
+        "mask=${MW}x${MH} window=${GW}x${GH}"
 else
-    print_result "(d) MASK 外数px 下はデスクトップと同色" "FAIL" \
-        "outside=${OUTSIDE_RGB} ref=${SIDE_REF_RGB} 差=${OUTSIDE_DIFF} (>=30)"
+    print_result "(d) 入力マスクはピル領域のみ (外側クリック透過)" "FAIL" \
+        "mask=${MW}x${MH} window=${GW}x${GH} (マスクが大きすぎる)"
+fi
+
+# ---- (e) MASK が配置先出力の内側に収まる --------------------------------
+if (( MX >= SX && MY >= SY && MX + MW <= SX + SW && MY + MH <= SY + SH )); then
+    print_result "(e) MASK が配置先出力内に収まる" "PASS" \
+        "mask=(${MX},${MY})..($((MX + MW)),$((MY + MH))) screen=(${SX},${SY})..($((SX + SW)),$((SY + SH)))"
+else
+    print_result "(e) MASK が配置先出力内に収まる" "FAIL" \
+        "mask=(${MX},${MY})..($((MX + MW)),$((MY + MH))) screen=(${SX},${SY})..($((SX + SW)),$((SY + SH)))"
 fi
 
 echo
@@ -225,9 +257,9 @@ if (( FAIL_COUNT > 0 )); then
     echo "  - マウスが画面上部中央にあるとホバー展開し、形状が変わって FAIL する場合があります。"
     echo "    マウスを画面中央へ移動して再実行してください。"
     echo "  - QML 側 (qml/) が未実装・読み込みエラーの可能性があります (ui-designer 担当)。"
-    echo "  - (a)(b) が FAIL: DPR (scale 1.2) と入力領域マスクの座標系を確認してください。"
+    echo "  - (a)(b) が FAIL: マルチモニタ座標 / 入力領域マスクの座標系を確認してください。"
     echo "  - (c) が FAIL: ノッチが描画されていない (QML ロード失敗 / 透明) 可能性があります。"
-    echo "  - (d) が FAIL: ドロップシャドウ等がピル外へ漏れている可能性があります。"
+    echo "  - (d)(e) が FAIL: setMask() の形状がピルより大きい / 出力外へはみ出しています。"
     exit 1
 fi
 

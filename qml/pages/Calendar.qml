@@ -11,8 +11,9 @@ import dev.yukirawa.activenotch
 // - サービス未配線時は typeof ガードでフォールバック表示
 Item {
     id: root
-    width: parent ? parent.width : 604
-    height: parent ? parent.height : 380
+    // PageLoader が anchors.fill でサイズを与える。parent 依存は循環の原因。
+    implicitWidth: 604
+    implicitHeight: 380
 
     // ---- 内部状態 -----------------------------------------------------------
     property int currentYear: new Date().getFullYear()
@@ -20,7 +21,7 @@ Item {
     property var monthGridData: []  // CalendarService.monthGrid() の戻り値
 
     // 曜日ラベル (日本語・長形式)
-    readonly property var weekdaysLong: (typeof CalendarService !== "undefined" && CalendarService.weekdayLong)
+    readonly property var weekdaysLong: (typeof CalendarService !== "undefined" && CalendarService !== null && CalendarService.weekdayLong)
         ? CalendarService.weekdayLong
         : ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"]
 
@@ -29,7 +30,7 @@ Item {
 
     // ---- サービス連携: 月グリッド取得 ---------------------------------------
     function refreshGrid() {
-        if (typeof CalendarService !== "undefined" && CalendarService.monthGrid) {
+        if (typeof CalendarService !== "undefined" && CalendarService !== null && CalendarService.monthGrid) {
             const grid = CalendarService.monthGrid(currentYear, currentMonth)
             if (grid) {
                 monthGridData = grid
@@ -96,10 +97,10 @@ Item {
     onCurrentMonthChanged: refreshGrid()
 
     // ---- サービスからの現在月名・年表示用 -----------------------------------
-    readonly property string headerYear: (typeof CalendarService !== "undefined" && CalendarService.year !== undefined)
+    readonly property string headerYear: (typeof CalendarService !== "undefined" && CalendarService !== null && CalendarService.year !== undefined)
         ? CalendarService.year.toString()
         : currentYear.toString()
-    readonly property string headerMonth: (typeof CalendarService !== "undefined" && CalendarService.monthName !== undefined)
+    readonly property string headerMonth: (typeof CalendarService !== "undefined" && CalendarService !== null && CalendarService.monthName !== undefined)
         ? CalendarService.monthName
         : Qt.formatDate(new Date(currentYear, currentMonth - 1, 1), "MMMM")
 
@@ -117,7 +118,7 @@ Item {
             // 左: 前月ボタン
             IconButton {
                 id: prevBtn
-                iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z'/>"
+                iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z'/></svg>"
                 iconSize: 20
                 buttonSize: 36
                 tooltipText: qsTr("前月")
@@ -133,7 +134,9 @@ Item {
 
             // 中央: 年月表示
             Item {
-                Layout.fillWidth: true
+                // Row (positioner) 内では Layout.fillWidth は無効。
+                // 前後ボタン (36×2) + spacing (8×2) を差し引いた幅を明示する。
+                width: Math.max(0, parent.width - 88)
                 height: parent.height
 
                 Column {
@@ -162,7 +165,7 @@ Item {
             // 右: 翌月ボタン
             IconButton {
                 id: nextBtn
-                iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z'/>"
+                iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%23E8F4F2' d='M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z'/></svg>"
                 iconSize: 20
                 buttonSize: 36
                 tooltipText: qsTr("翌月")
@@ -206,19 +209,29 @@ Item {
             Repeater {
                 model: 6  // 最大6週間
                 delegate: Row {
+                    id: weekRow
+                    // int モデルの index は行番号 (0-5)。
+                    required property int index
                     width: parent.width
                     height: 36
                     spacing: 0
 
                     Repeater {
                         model: 7
-                        delegate: DayCell {
-                            required property var modelData
+                        delegate: Item {
+                            id: dayCellWrap
+                            // int モデルの index は列番号 (0-6)。
                             required property int index
-                            required property int row
-                            width: parent.width / 7
-                            height: parent.height
-                            dayData: getDayData(row, index)
+                            width: weekRow.width / 7
+                            height: weekRow.height
+
+                            DayCell {
+                                anchors.fill: parent
+                                // DayCell の required property は明示的に満たす。
+                                dayData: root.getDayData(weekRow.index, dayCellWrap.index)
+                                index: dayCellWrap.index
+                                row: weekRow.index
+                            }
                         }
                     }
                 }

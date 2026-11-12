@@ -10,7 +10,9 @@ Item {
     property real value: 0
     property real maxValue: 100
     property real thickness: 8
-    property color trackColor: Qt.rgba(255, 255, 255, 0.1)
+    property color trackColor: Qt.rgba(Theme.specularColor.r,
+                                       Theme.specularColor.g,
+                                       Theme.specularColor.b, 0.1)
     property color progressColor: Theme.accent
     property bool showText: true
     property string textValue: ""
@@ -19,27 +21,43 @@ Item {
     property string subText: ""
     property color subTextColor: Theme.textMuted
     property int subTextPixelSize: 12
-    property bool enabled: true
+    // enabled は Item 標準プロパティを使用する (再宣言しない)。
 
-    // 内部: アニメーション用の進捗値
-    property real animatedProgress: root.value / root.maxValue
+    // 内部: アニメーション用の進捗値 (0.0-1.0)
+    property real animatedProgress: 0
+
+    function clamp01(v) {
+        return Math.max(0, Math.min(1, v))
+    }
+
+    function syncProgress() {
+        animatedProgress = (maxValue > 0) ? clamp01(value / maxValue) : 0
+    }
+
     Behavior on animatedProgress {
         NumberAnimation { duration: 1000; easing.type: Easing.OutCubic }
     }
-    onValueChanged: animatedProgress = value / maxValue
+    onValueChanged: syncProgress()
+    onMaxValueChanged: syncProgress()
+    Component.onCompleted: syncProgress()
 
     // Canvas で描画
     Canvas {
         id: canvas
         anchors.fill: parent
         antialiasing: true
+
+        // サイズや色の変更時にも再描画する。
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+
         onPaint: {
             const ctx = canvas.getContext("2d")
             ctx.clearRect(0, 0, canvas.width, canvas.height)
 
             const centerX = canvas.width / 2
             const centerY = canvas.height / 2
-            const radius = Math.min(centerX, centerY) - root.thickness / 2
+            const radius = Math.max(0, Math.min(centerX, centerY) - root.thickness / 2)
             const lineWidth = root.thickness
             const startAngle = -Math.PI / 2  // 12時位置から開始
             const endAngle = startAngle + 2 * Math.PI * root.animatedProgress
@@ -62,6 +80,12 @@ Item {
             }
         }
     }
+
+    // 進捗アニメーション / 色 / 太さの変更を Canvas に反映する。
+    onAnimatedProgressChanged: canvas.requestPaint()
+    onThicknessChanged: canvas.requestPaint()
+    onTrackColorChanged: canvas.requestPaint()
+    onProgressColorChanged: canvas.requestPaint()
 
     // 中央テキスト
     Column {
@@ -92,7 +116,8 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: Math.min(width, height) / 2
-        color: Qt.rgba(0, 0, 0, 0.1)
+        color: Qt.rgba(Theme.shadowColor.r, Theme.shadowColor.g,
+                       Theme.shadowColor.b, 0.1)
         visible: !root.enabled
     }
 }

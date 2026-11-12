@@ -3,9 +3,11 @@
 #include "BlurHelper.h"
 #include "FullscreenDetector.h"
 #include "RegionUtils.h"
+#include "SvgIconProvider.h"
 
 #include <QDebug>
 #include <QGuiApplication>
+#include <QImage>
 #include <QMetaObject>
 #include <QQmlEngine>
 #include <QQmlError>
@@ -43,6 +45,8 @@ constexpr qreal kBridgePillRadius = 16.0;
 
 // 形状デバッグ出力の環境変数 (scripts/verify-ui.sh がパースする)。
 constexpr char kGeometryEnvVar[] = "ACTIVENOTCH_PRINT_GEOMETRY";
+// 自ウィンドウの描画結果を PNG 保存する環境変数 (verify-ui.sh の描画検証用)。
+constexpr char kGrabEnvVar[] = "ACTIVENOTCH_GRAB";
 
 // wlr-layer-shell の scope 識別子。
 constexpr char kLayerScope[] = "dev.yukirawa.activenotch";
@@ -58,6 +62,7 @@ NotchWindow::NotchWindow(QObject *parent)
     , m_view(std::make_unique<QQuickView>())
 {
     m_geometryPrintEnabled = (qgetenv(kGeometryEnvVar) == "1");
+    m_grabPath = QString::fromLocal8Bit(qgetenv(kGrabEnvVar));
 
     // ピル外のウィンドウ背景を完全透過にする。
     m_view->setColor(Qt::transparent);
@@ -76,6 +81,7 @@ NotchWindow::NotchWindow(QObject *parent)
     m_shapeRegion = RegionUtils::roundedRectRegion(kBridgePillX, kBridgePillY,
                                                    kBridgePillW, kBridgePillH,
                                                    kBridgePillRadius);
+    m_blurRegion = m_shapeRegion;
     m_hasShape = true;
 
     // KWin ブラー (ext_background_effect_v1)。失敗時は半透明フォールバック。
@@ -107,6 +113,12 @@ void NotchWindow::load()
         return;
     }
 
+    // インライン SVG アイコン用の画像プロバイダ。
+    // data: URL は Qt 6.12 の QQuickPixmapReader で完了シグナルを取りこぼす
+    // ため、QML 側は image://svg/<percent-encoded-svg> を使う。
+    m_view->engine()->addImageProvider(QStringLiteral("svg"),
+                                       new SvgIconProvider);
+
     m_view->loadFromModule(QLatin1StringView(kQmlModuleUri),
                            QLatin1StringView(kQmlRootType));
     m_qmlLoaded = (m_view->status() != QQuickView::Error);
@@ -136,6 +148,10 @@ void NotchWindow::connectNotchItem()
     // 存在チェックしてから接続する (connect 失敗時の警告も避ける)。
     tryConnect("shapeSettled(qreal,qreal,qreal,qreal,qreal)",
                "onShapeSettled(double,double,double,double,double)");
+    tryConnect("shapeGeometryChanged(qreal,qreal,qreal,qreal,qreal)",
+               "onShapeGeometryChanged(double,double,double,double,double)");
+    tryConnect("shapeTargetChanged(qreal,qreal,qreal,qreal,qreal)",
+               "onShapeTargetChanged(double,double,double,double,double)");
     tryConnect("notchStateChanged()", "onNotchStateChanged()");
     tryConnect("wantsKeyboardFocusChanged()", "onWantsKeyboardFocusChanged()");
 
@@ -173,10 +189,31 @@ void NotchWindow::onShapeSettled(double x, double y, double w, double h, double 
     // 座標は Main ルート基準の論理px。ウィンドウは Main ルートと同サイズなので
     // そのままウィンドウローカル論理px として扱える。
     m_shapeRegion = RegionUtils::roundedRectRegion(x, y, w, h, radius);
+    m_blurRegion = m_shapeRegion;
     m_hasShape = true;
 
     applyMask();
     applyBlur();
+    onGeometryChanged();
+}
+
+void NotchWindow::onShapeGeometryChanged(double x, double y, double w, double h,
+                                         double radius)
+{
+    // スプリングアニメ中の実形状。ブラーだけを追従させる。
+    // 開いた瞬間からガラス越しの背景が見え、閉じた瞬間にブラーが消える。
+    m_blurRegion = RegionUtils::roundedRectRegion(x, y, w, h, radius);
+    applyBlur();
+}
+
+void NotchWindow::onShapeTargetChanged(double x, double y, double w, double h,
+                                       double radius)
+{
+    // 到達目標形状。入力マスクはアニメを待たず即時更新する
+    // (展開直後からパネル全体をクリックでき、閉じた直後から外側が透過する)。
+    m_shapeRegion = RegionUtils::roundedRectRegion(x, y, w, h, radius);
+    m_hasShape = true;
+    applyMask();
     onGeometryChanged();
 }
 
@@ -232,11 +269,12 @@ void NotchWindow::applyBlur()
     if (!m_blur) {
         return;
     }
-    // ブラー領域はノッチ形状のみ (pinned でも形状は同じ)。
-    // 全画面退避中はノッチが不可視になるため、ブラーも解除する
-    // (領域を残すと透明なピル形状だけがぼやけて見える)。
+    // ブラー領域はアニメ中の実形状 (m_blurRegion) を使う。
+    // 入力マスク (m_shapeRegion = 到達目標) とは別管理にすることで、
+    // 「開くと透明→後からくすみ」「閉じるとブラー残留」を防ぐ。
+    // 全画面退避中はノッチが不可視になるため、ブラーも解除する。
     // BlurHelper 側で未対応環境は内部で無視し、半透明にフォールバックする。
-    m_blur->setBlurRegion(m_fullscreenActive ? QRegion() : m_shapeRegion);
+    m_blur->setBlurRegion(m_fullscreenActive ? QRegion() : m_blurRegion);
 }
 
 void NotchWindow::updateKeyboardInteractivity()
@@ -281,11 +319,13 @@ void NotchWindow::printGeometry()
     const QString screenName = screen ? screen->name() : QStringLiteral("?");
 
     // verify-ui.sh がパースするため、行形式は厳守 (半角スペース区切り、"= " なし)。
+    // 座標系はすべて論理px に統一する。マルチモニタ + 混合 DPR でも
+    // 「SCREEN の中心」と「MASK の中心」を同じ土俵で比較できる。
     QTextStream out(stdout);
-    out << "GEOMETRY x=" << qRound(frame.x() * dpr)
-        << " y=" << qRound(frame.y() * dpr)
-        << " w=" << qRound(frame.width() * dpr)
-        << " h=" << qRound(frame.height() * dpr)
+    out << "GEOMETRY x=" << frame.x()
+        << " y=" << frame.y()
+        << " w=" << frame.width()
+        << " h=" << frame.height()
         << " scale=" << QString::number(dpr)
         << " screen=" << screenName << Qt::endl;
 
@@ -299,11 +339,21 @@ void NotchWindow::printGeometry()
         surfaceTopLeft.setY(screenGeometry.y()); // AnchorTop + margin 0
     }
 
+    // マルチモニタ対応: スクリーンショット全体の中でのこの出力の位置を
+    // verify-ui.sh が計算できるよう、論理座標のジオメトリも出力する。
+    if (screen) {
+        const QRect sg = screen->geometry();
+        out << "SCREEN x=" << sg.x() << " y=" << sg.y()
+            << " w=" << sg.width() << " h=" << sg.height()
+            << " dpr=" << QString::number(dpr)
+            << " name=" << screenName << Qt::endl;
+    }
+
     const QRect mask = currentMaskRegion().boundingRect();
-    out << "MASK x=" << qRound((surfaceTopLeft.x() + mask.x()) * dpr)
-        << " y=" << qRound((surfaceTopLeft.y() + mask.y()) * dpr)
-        << " w=" << qRound(mask.width() * dpr)
-        << " h=" << qRound(mask.height() * dpr) << Qt::endl;
+    out << "MASK x=" << surfaceTopLeft.x() + mask.x()
+        << " y=" << surfaceTopLeft.y() + mask.y()
+        << " w=" << mask.width()
+        << " h=" << mask.height() << Qt::endl;
 }
 
 void NotchWindow::applyLayerShell()
@@ -355,4 +405,34 @@ void NotchWindow::show()
     if (m_geometryPrintEnabled) {
         QTimer::singleShot(0, this, &NotchWindow::onGeometryChanged);
     }
+
+    // 描画検証用の自ウィンドウ grab (環境変数 ON 時)。
+    scheduleSelfGrab();
+}
+
+void NotchWindow::scheduleSelfGrab()
+{
+    if (m_grabPath.isEmpty()) {
+        return;
+    }
+    // スプリングアニメとシーングラフの初回描画が落ち着くまで待つ。
+    QTimer::singleShot(1500, this, [this]() {
+        if (!m_view) {
+            return;
+        }
+        const QImage image = m_view->grabWindow();
+        if (image.isNull()) {
+            qWarning() << "ActiveNotch: grabWindow() failed";
+            return;
+        }
+        if (!image.save(m_grabPath, "PNG")) {
+            qWarning() << "ActiveNotch: failed to save grab to" << m_grabPath;
+            return;
+        }
+        QTextStream out(stdout);
+        out << "GRAB path=" << m_grabPath
+            << " w=" << image.width()
+            << " h=" << image.height()
+            << " format=" << int(image.format()) << Qt::endl;
+    });
 }

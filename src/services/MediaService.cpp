@@ -5,6 +5,8 @@
 #include <QDBusMessage>
 #include <QDBusObjectPath>
 #include <QDBusReply>
+#include <QDBusVariant>
+#include <QDBusArgument>
 #include <QDebug>
 #include <QTimer>
 
@@ -22,6 +24,32 @@ QString playerNameFromService(const QString &service)
     return service;
 }
 
+// MPRIS の Metadata (a{sv}) を QDBusInterface::property() で読むと、
+// 動的 metaobject が a{sv} を QDBusRawType<0x617b73767d>* として生成するため
+// 失敗する。Properties.Get を直接呼び、'v' を剥がして demarshall する。
+QVariantMap readVariantMapProperty(const QDBusConnection &bus, const QString &service,
+                                   const QString &path, const QString &iface,
+                                   const QString &property)
+{
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        service, path, QString::fromLatin1(kPropertiesInterface),
+        QStringLiteral("Get"));
+    msg << iface << property;
+    const QDBusMessage reply = bus.call(msg);
+    if (reply.type() != QDBusMessage::ReplyMessage || reply.arguments().isEmpty()) {
+        return {};
+    }
+
+    QVariant value = reply.arguments().at(0);
+    if (value.metaType() == QMetaType::fromType<QDBusVariant>()) {
+        value = qvariant_cast<QDBusVariant>(value).variant();
+    }
+    if (value.metaType() == QMetaType::fromType<QDBusArgument>()) {
+        return qdbus_cast<QVariantMap>(value);
+    }
+    return value.toMap();
+}
+
 } // namespace
 
 class MediaService::Private
@@ -34,6 +62,8 @@ public:
     // 現在監視中のプレイヤー
     QString m_currentPlayerService;
     QString m_currentPlayerPath = "/org/mpris/MediaPlayer2";
+    // SetPosition の第 1 引数に使う mpris:trackid (Metadata から取得)
+    QString m_trackId;
     QDBusInterface *m_playerIface = nullptr;
 
     // NameOwnerChanged 監視用
@@ -150,10 +180,12 @@ public:
     {
         if (!m_playerIface || !m_playerIface->isValid()) return;
 
-        // Metadata
-        QVariant metadataVariant = m_playerIface->property("Metadata");
-        if (metadataVariant.isValid() && metadataVariant.canConvert<QVariantMap>()) {
-            q_ptr->updateMetadata(metadataVariant.toMap());
+        // Metadata (a{sv}) は property() では読めないため Properties.Get を直接使う
+        const QVariantMap metadata = readVariantMapProperty(
+            m_bus, m_currentPlayerService, m_currentPlayerPath,
+            QString::fromLatin1(kMprisPlayerInterface), QStringLiteral("Metadata"));
+        if (!metadata.isEmpty()) {
+            q_ptr->updateMetadata(metadata);
         }
 
         // PlaybackStatus
@@ -223,9 +255,13 @@ void MediaService::previous()
 void MediaService::seekMs(qint64 ms)
 {
     if (!d->m_playerIface || !d->m_playerIface->isValid()) return;
-    // Position はマイクロ秒単位
+    // SetPosition(o trackId, x positionUs)。trackId は Metadata の
+    // mpris:trackid であり、プレイヤーのオブジェクトパスではない。
+    const QString trackId = d->m_trackId.isEmpty()
+        ? QStringLiteral("/org/mpris/MediaPlayer2/TrackList/NoTrack")
+        : d->m_trackId;
     qint64 us = ms * 1000;
-    d->m_playerIface->call("SetPosition", QDBusObjectPath(d->m_currentPlayerPath), us);
+    d->m_playerIface->call("SetPosition", QDBusObjectPath(trackId), us);
 }
 
 void MediaService::setVolumePct(int v)
@@ -248,6 +284,14 @@ void MediaService::updateAvailable(bool available)
 
 void MediaService::updateMetadata(const QVariantMap &metadata)
 {
+    // SetPosition 用に mpris:trackid を保持する (o = QDBusObjectPath)
+    const QVariant trackVar = metadata.value(QStringLiteral("mpris:trackid"));
+    if (trackVar.userType() == qMetaTypeId<QDBusObjectPath>()) {
+        d->m_trackId = qvariant_cast<QDBusObjectPath>(trackVar).path();
+    } else {
+        d->m_trackId = trackVar.toString();
+    }
+
     auto parsed = parseMetadata(metadata);
 
     QString newTitle = parsed.value("title").toString();
@@ -380,7 +424,13 @@ void MediaService::onPropertiesChanged(const QString &interfaceName,
     if (interfaceName != kMprisPlayerInterface) return;
 
     if (changedProperties.contains("Metadata")) {
-        updateMetadata(changedProperties["Metadata"].toMap());
+        // PropertiesChanged の a{sv} 内の Metadata は QVariant<QDBusArgument> で届く
+        const QVariant metadataValue = changedProperties.value(QStringLiteral("Metadata"));
+        if (metadataValue.metaType() == QMetaType::fromType<QDBusArgument>()) {
+            updateMetadata(qdbus_cast<QVariantMap>(metadataValue));
+        } else {
+            updateMetadata(metadataValue.toMap());
+        }
     }
     if (changedProperties.contains("PlaybackStatus")) {
         updatePlaybackStatus(changedProperties["PlaybackStatus"].toString());

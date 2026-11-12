@@ -9,26 +9,27 @@ import dev.yukirawa.activenotch
 // サービス未配線 (available=false) の場合は「利用不可」表示で graceful に退化。
 Item {
     id: root
-    width: parent ? parent.width : 604
-    height: parent ? parent.height : 380
+    // PageLoader が anchors.fill でサイズを与える。parent 依存は循環の原因。
+    implicitWidth: 604
+    implicitHeight: 380
 
     // ---- サービスプロパティの安全な取得 (typeof ガード) ----------------------
-    readonly property bool available: (typeof BatteryService !== "undefined" && BatteryService.available !== undefined)
+    readonly property bool available: (typeof BatteryService !== "undefined" && BatteryService !== null && BatteryService.available !== undefined)
         ? BatteryService.available
         : false
-    readonly property int percent: (typeof BatteryService !== "undefined" && BatteryService.percent !== undefined)
+    readonly property int percent: (typeof BatteryService !== "undefined" && BatteryService !== null && BatteryService.percent !== undefined)
         ? BatteryService.percent
         : 0
-    readonly property bool charging: (typeof BatteryService !== "undefined" && BatteryService.charging !== undefined)
+    readonly property bool charging: (typeof BatteryService !== "undefined" && BatteryService !== null && BatteryService.charging !== undefined)
         ? BatteryService.charging
         : false
-    readonly property bool plugged: (typeof BatteryService !== "undefined" && BatteryService.plugged !== undefined)
+    readonly property bool plugged: (typeof BatteryService !== "undefined" && BatteryService !== null && BatteryService.plugged !== undefined)
         ? BatteryService.plugged
         : false
-    readonly property real powerW: (typeof BatteryService !== "undefined" && BatteryService.powerW !== undefined)
+    readonly property real powerW: (typeof BatteryService !== "undefined" && BatteryService !== null && BatteryService.powerW !== undefined)
         ? BatteryService.powerW
         : 0
-    readonly property string timeRemainingText: (typeof BatteryService !== "undefined" && BatteryService.timeRemainingText !== undefined)
+    readonly property string timeRemainingText: (typeof BatteryService !== "undefined" && BatteryService !== null && BatteryService.timeRemainingText !== undefined)
         ? BatteryService.timeRemainingText
         : qsTr("計算中…")
 
@@ -78,9 +79,9 @@ Item {
                     width: 36
                     height: 36
                     source: root.charging
-                        ? "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='36' height='36'><path fill='%237FB8B0' d='M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33V21.67C7 22.4 7.6 23 8.33 23h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zm-2.67 15.33c-.23.23-.23.61 0 .84l2.47 2.47c.23.23.61.23.84 0l3.67-3.67c.23-.23.23-.61 0-.84l-2.47-2.47c-.23-.23-.61-.23-.84 0L13 17.33z'/>"
-                        : "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='36' height='36'><path fill='%23E8F4F2' d='M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33V21.67C7 22.4 7.6 23 8.33 23h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zM13 18.33l-2.47-2.47c-.23-.23-.61-.23-.84 0L7.33 18.34c-.23.23-.23.61 0 .84l2.47 2.47c.23.23.61.23.84 0l3.67-3.67c.23-.23.23-.61 0-.84l-2.47-2.47z'/>"
-                    color: root.charging ? Theme.accent : (root.available ? Theme.textColor : Theme.textMuted)
+                        ? "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='36' height='36'><path fill='%237FB8B0' d='M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33V21.67C7 22.4 7.6 23 8.33 23h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zm-2.67 15.33c-.23.23-.23.61 0 .84l2.47 2.47c.23.23.61.23.84 0l3.67-3.67c.23-.23.23-.61 0-.84l-2.47-2.47c-.23-.23-.61-.23-.84 0L13 17.33z'/></svg>"
+                        : "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='36' height='36'><path fill='%23E8F4F2' d='M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33V21.67C7 22.4 7.6 23 8.33 23h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zM13 18.33l-2.47-2.47c-.23-.23-.61-.23-.84 0L7.33 18.34c-.23.23-.23.61 0 .84l2.47 2.47c.23.23.61.23.84 0l3.67-3.67c.23-.23.23-.61 0-.84l-2.47-2.47z'/></svg>"
+                    // Image に color プロパティは無い。SVG の fill 色をそのまま使う。
                 }
 
                 // 充電中バッジ (小さな稲妻)
@@ -90,7 +91,7 @@ Item {
                     anchors.right: parent.right
                     width: 16
                     height: 16
-                    source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16'><path fill='%237FB8B0' d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/>"
+                    source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16'><path fill='%237FB8B0' d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/></svg>"
                 }
             }
 
@@ -129,6 +130,7 @@ Item {
             width: Math.min(parent.width, 200)
             height: mainGauge.width
             anchors.horizontalCenter: parent.horizontalCenter
+            visible: root.available
             value: root.animatedPercent
             maxValue: 100
             thickness: 10
@@ -154,12 +156,13 @@ Item {
             columns: 2
             rowSpacing: 12
             columnSpacing: 16
+            visible: root.available
 
             // 項目 1: 状態
             DetailItem {
                 Layout.columnSpan: 1
                 Layout.fillWidth: true
-                iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z'/>"
+                iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z'/></svg>"
                 label: qsTr("状態")
                 value: root.available
                     ? (root.charging ? qsTr("充電中") : (root.plugged ? qsTr("充電完了 (AC接続)") : qsTr("放電中")))
@@ -173,7 +176,7 @@ Item {
             DetailItem {
                 Layout.columnSpan: 1
                 Layout.fillWidth: true
-                iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/>"
+                iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/></svg>"
                 label: qsTr("消費電力")
                 value: root.available && root.powerW > 0
                     ? "%1 W".arg(root.powerW.toFixed(1))
@@ -185,7 +188,7 @@ Item {
             DetailItem {
                 Layout.columnSpan: 1
                 Layout.fillWidth: true
-                iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33V21.67C7 22.4 7.6 23 8.33 23h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zM13 18.33l-2.47-2.47c-.23-.23-.61-.23-.84 0L7.33 18.34c-.23.23-.23.61 0 .84l2.47 2.47c.23.23.61.23.84 0l3.67-3.67c.23-.23.23-.61 0-.84l-2.47-2.47z'/>"
+                iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33V21.67C7 22.4 7.6 23 8.33 23h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zM13 18.33l-2.47-2.47c-.23-.23-.61-.23-.84 0L7.33 18.34c-.23.23-.23.61 0 .84l2.47 2.47c.23.23.61.23.84 0l3.67-3.67c.23-.23.23-.61 0-.84l-2.47-2.47z'/></svg>"
                 label: qsTr("残量")
                 value: root.available ? "%1%".arg(root.percent) : qsTr("不明")
                 valueColor: root.available ? Theme.textColor : Theme.textMuted
@@ -195,7 +198,7 @@ Item {
             DetailItem {
                 Layout.columnSpan: 1
                 Layout.fillWidth: true
-                iconSource: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/>"
+                iconSource: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'><path fill='%237FB8B0' d='M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/></svg>"
                 label: qsTr("推定残り時間")
                 value: root.available && root.timeRemainingText
                     ? root.timeRemainingText
@@ -208,7 +211,8 @@ Item {
         Item {
             id: unavailableCard
             width: parent.width
-            Layout.fillWidth: true
+            // Column 直下では Layout.fillWidth は効かないため明示高さを与える。
+            height: visible ? (parent.height - 36 - 16) : 0
             visible: !root.available
 
             GlassCard {
@@ -222,8 +226,9 @@ Item {
 
                     Image {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        source: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48'><path fill='%237FB8B0' d='M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33V21.67C7 22.4 7.6 23 8.33 23h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zM13 18.33l-2.47-2.47c-.23-.23-.61-.23-.84 0L7.33 18.34c-.23.23-.23.61 0 .84l2.47 2.47c.23.23.61.23.84 0l3.67-3.67c.23-.23.23-.61 0-.84l-2.47-2.47z'/>"
-                        color: Theme.accentSoft
+                        source: "image://svg/<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48'><path fill='%237FB8B0' d='M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33V21.67C7 22.4 7.6 23 8.33 23h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zM13 18.33l-2.47-2.47c-.23-.23-.61-.23-.84 0L7.33 18.34c-.23.23-.23.61 0 .84l2.47 2.47c.23.23.61.23.84 0l3.67-3.67c.23-.23.23-.61 0-.84l-2.47-2.47z'/></svg>"
+                        width: 48
+                        height: 48
                     }
 
                     Text {

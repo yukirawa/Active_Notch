@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Layouts
 import dev.yukirawa.activenotch
 
 // ToggleRow — トグル付き設定行 (Quick ページ等で使用)。
@@ -28,30 +29,30 @@ Item {
             NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
         }
 
-        Row {
+        RowLayout {
             anchors.fill: parent
             spacing: 16
 
             // アイコン
+            // Qt 6 の Image に color (ティント) は無いため、SVG の塗り色を
+            // そのまま使い、状態は opacity で表現する。
             Image {
                 id: iconImg
                 source: root.iconSource
-                width: 24
-                height: 24
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.preferredWidth: 24
+                Layout.preferredHeight: 24
+                Layout.alignment: Qt.AlignVCenter
                 fillMode: Image.PreserveAspectFit
-                color: root.isAvailable
-                    ? (root.checked ? Theme.accent : Theme.textColor)
-                    : Theme.textMuted
-                opacity: root.isAvailable ? 1 : 0.5
-                Behavior on color {
-                    ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
+                opacity: root.isAvailable ? (root.checked ? 1.0 : 0.85) : 0.5
+                Behavior on opacity {
+                    NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
                 }
             }
 
             // ラベル + 説明
             Column {
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
                 spacing: 2
 
                 Text {
@@ -67,15 +68,14 @@ Item {
                     text: root.descriptionText
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontPixelSizeCaption
-                    color: root.isAvailable ? Theme.textMuted : Theme.textMuted
+                    color: Theme.textMuted
                 }
             }
 
             // 右側: トグルスイッチ
             ToggleSwitch {
                 id: toggleSwitch
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.alignment: Qt.AlignVCenter
                 checked: root.checked
                 enabled: root.isAvailable
                 onToggled: root.toggled(checked)

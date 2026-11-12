@@ -9,87 +9,98 @@ import dev.yukirawa.activenotch
 Item {
     id: marqueeRoot
     property string text: ""
-    property int fontPixelSize: Theme.fontPixelSize
+    // Text と同じ font グループを受け付ける (呼び出し側の font.* 指定に対応)。
+    property font font: Qt.font({
+        family: Theme.fontFamily,
+        pixelSize: Theme.fontPixelSize
+    })
     property color color: Theme.textColor
     property int marqueeSpeed: 40      // px/sec
     property int pauseDuration: 2000   // ms
 
+    // 旧 API との互換: font.pixelSize と同期する。
+    property int fontPixelSize: font.pixelSize
+    onFontPixelSizeChanged: {
+        if (font.pixelSize !== fontPixelSize) {
+            const f = font
+            f.pixelSize = fontPixelSize
+            font = f
+        }
+    }
+
     // 内部: テキストが幅を超えるかどうか
-    readonly property bool needsMarquee: textItem.implicitWidth > marqueeRoot.width
+    readonly property bool needsMarquee: marqueeRoot.width > 0
+        && textItem.implicitWidth > marqueeRoot.width
 
     // スクロールアニメーション用プロパティ
     property real scrollPos: 0
     property bool scrolling: false
 
     width: parent ? parent.width : 300
-    height: fontPixelSize + 4
+    implicitHeight: font.pixelSize + 4
+    height: implicitHeight
     clip: true
 
     Text {
         id: textItem
         x: marqueeRoot.scrollPos
         text: marqueeRoot.text
-        font.family: Theme.fontFamily
-        font.pixelSize: marqueeRoot.fontPixelSize
+        font: marqueeRoot.font
         color: marqueeRoot.color
     }
 
-    // テキスト幅測定用の非表示コピー
-    Text {
-        id: measureText
-        visible: false
-        text: marqueeRoot.text
-        font.family: Theme.fontFamily
-        font.pixelSize: marqueeRoot.fontPixelSize
-    }
-
     // マーキーアニメーション
+    // running は直接バインドせず、状態変化時だけ start/stop する
+    // (restart と running バインディングの競合を避ける)。
     SequentialAnimation {
         id: marqueeAnim
-        running: marqueeRoot.needsMarquee && marqueeRoot.scrolling
+        loops: Animation.Infinite
+        running: false
 
-        PauseAnimation { duration: marqueeRoot.pauseDuration }
+        PauseAnimation { duration: Math.max(0, marqueeRoot.pauseDuration) }
 
         PropertyAnimation {
             target: marqueeRoot
             property: "scrollPos"
             from: 0
-            to: -measureText.implicitWidth
-            duration: measureText.implicitWidth / marqueeRoot.marqueeSpeed * 1000
+            to: -Math.max(1, textItem.implicitWidth)
+            duration: Math.max(1000,
+                textItem.implicitWidth / Math.max(1, marqueeRoot.marqueeSpeed) * 1000)
             easing.type: Easing.Linear
         }
 
-        PauseAnimation { duration: marqueeRoot.pauseDuration }
+        PauseAnimation { duration: Math.max(0, marqueeRoot.pauseDuration) }
 
         ScriptAction {
             script: marqueeRoot.scrollPos = 0
         }
     }
 
-    onWidthChanged: {
-        if (marqueeRoot.needsMarquee) {
-            marqueeRoot.scrolling = true
-            marqueeAnim.restart()
-        } else {
-            marqueeRoot.scrolling = false
-            marqueeRoot.scrollPos = 0
+    function startMarquee() {
+        if (!needsMarquee || !visible) {
+            stopMarquee()
+            return
         }
+        scrolling = true
+        marqueeAnim.restart()
     }
 
-    onTextChanged: {
-        if (marqueeRoot.needsMarquee) {
-            marqueeRoot.scrolling = true
-            marqueeAnim.restart()
-        } else {
-            marqueeRoot.scrolling = false
-            marqueeRoot.scrollPos = 0
-        }
+    function stopMarquee() {
+        scrolling = false
+        marqueeAnim.stop()
+        scrollPos = 0
     }
 
-    Component.onCompleted: {
-        if (marqueeRoot.needsMarquee) {
-            marqueeRoot.scrolling = true
-            marqueeAnim.start()
-        }
+    function refreshMarquee() {
+        if (needsMarquee && visible)
+            startMarquee()
+        else
+            stopMarquee()
     }
+
+    onWidthChanged: refreshMarquee()
+    onTextChanged: refreshMarquee()
+    onFontChanged: refreshMarquee()
+    onVisibleChanged: refreshMarquee()
+    Component.onCompleted: refreshMarquee()
 }
